@@ -67,7 +67,7 @@ Use **+ New** for a new plan, and the plan **☰** menu to change settings, copy
 
 ### Target fields and observing limits
 
-The target editor includes maximum **airmass**, maximum **Moon illumination** (`bright` ≤100%, `gray` ≤60%, `dark` ≤30%), minimum **Moon distance** in degrees, optional **Moon velocity separation limit** and **telluric velocity separation limit** in km/s, and optional target **radial velocity** in km/s. Velocity limits are only enforced when target RV is supplied. Leaving a velocity limit empty disables it.
+The target editor includes maximum **airmass**, maximum **Moon illumination** (`bright` ≤100%, `gray` ≤70%, `dark` ≤40%), minimum **Moon distance** in degrees, optional **Moon velocity separation limit** and **telluric velocity separation limit** in km/s, and optional target **radial velocity** in km/s. Velocity limits are only enforced when target RV is supplied. Leaving a velocity limit empty disables it.
 
 The editor also stores **exposure time** (seconds), **number of exposures** (a positive integer), **delay** (minutes in the interface; seconds in stored data), and **comments** (up to 1,000 words). Exposure time and delay accept decimal numbers, including `2700.0`; number of exposures must represent a whole number.
 
