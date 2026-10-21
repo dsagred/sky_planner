@@ -1,4 +1,4 @@
-# Sky Observation Planner v0.6
+# Sky Observation Planner
 
 **Plan your observing night, explore target visibility, and turn a list of astronomical objects into a practical observing schedule.**
 
