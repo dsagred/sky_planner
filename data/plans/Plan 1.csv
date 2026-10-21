@@ -1,0 +1,3 @@
+id,name,ra,dec,gmag,moon,airmass,phase,radial_velocity,exposure_time,exposures,delay,comments,moon_velocity_limit,telluric_velocity_limit,project,source_id
+1,M1,05:34:31,+22:00:52,,30.0,1.6,bright,,1200.0,1,120.0,,,,Messier,1
+2,M2,21:33:27,+00:49:23,,30.0,1.6,bright,,1200.0,1,120.0,,,,Messier,2
