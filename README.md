@@ -73,7 +73,13 @@ The editor also stores **exposure time** (seconds), **number of exposures** (a p
 
 Project defaults include airmass, Moon phase, Moon distance and optional Moon/telluric velocity limits. These are used for new project targets and can be applied to existing project targets when requested.
 
-## 3. Plotting
+## 3. Sites
+
+Sites, alraedy loaded in astropy can be selscted. See list of sites here: https://docs.astropy.org/en/stable/api/astropy.coordinates.EarthLocation.html#astropy.coordinates.EarthLocation.get_site_names
+
+Simply start typing your preferred site and use the autofill to complete them. Sites can be added manually by adding them in the list, loaded in sites.py
+
+## 4. Plotting
 
 Choose the date and observing **Location**, then select either plot mode. Click **Update** to calculate; the button displays an animated **Calculating** state while processing. Plotly allows zooming, panning, legend interaction and image export. The plot color theme is independent of the surrounding website, which follows the operating system's light/dark appearance. Drag the divider to resize the catalogues and plot.
 
@@ -89,7 +95,7 @@ For every night in the selected year, this plot estimates how many hours each ta
 
 The visibility calculation uses time sampling (approximately two minutes); velocity ephemerides are cached/interpolated to make repeated yearly plots faster. Treat the result as an observing-planning estimate, especially close to a limit threshold.
 
-## 4. Scheduling observations
+## 5. Scheduling observations
 
 Open the plan **☰** menu and change its **Mode** from **Plan** to **Schedule**. Schedule-only defaults then become visible:
 
