@@ -1,0 +1,9 @@
+Flask>=3.0,<4
+astropy>=6.0
+astroquery>=0.4.8
+numpy>=1.26
+pandas>=2.0
+matplotlib>=3.7
+plotly>=5.18
+Markdown>=3.5
+waitress>=3.0,<4
