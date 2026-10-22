@@ -1,2 +1,183 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sky Planner v0.6 — Sky Observation Planner — Benutzerhandbuch</title><style>body{font:15px/1.6 system-ui,sans-serif;max-width:1000px;margin:32px auto;padding:0 20px;background:#f8f9fb;color:#202833}h1,h2{line-height:1.25}h2{margin-top:2rem;border-bottom:1px solid #cfd5dd;padding-bottom:.3rem}pre{overflow:auto;background:#e9edf3;padding:1em;border-radius:6px}img{display:block;max-width:100%;height:auto;border-radius:6px;margin:1rem auto}a{color:#146dc4}@media(prefers-color-scheme:dark){body{background:#14171c;color:#e4e8ee}h2{border-color:#38414d}pre{background:#262d36}a{color:#72b4ff}}</style></head><body><p><a href="/help?lang=en">English</a> · <a href="/help?lang=de">Deutsch</a> · <a href="/help?lang=es">Español</a></p><h1>Sky Observation Planner — Benutzerhandbuch</h1><p>Sky Observation Planner ist eine lokale Webanwendung zur astronomischen Beobachtungsplanung. Projekte enthalten wiederverwendbare Zielkataloge, Pläne enthalten unabhängige Kopien ausgewählter Ziele. Neben Nacht- und Jahressichtbarkeit unterstützt die Anwendung geordnete Beobachtungszeitpläne.</p><img src="/docs/images/altitude_plot.png" alt="Nightly altitude chart" loading="lazy"><h2>1. Installation und Start</h2><p>Python 3.10 oder neuer wird benötigt. Das Archiv entpacken, ein Terminal im Anwendungsverzeichnis öffnen und die Abhängigkeiten installieren. Danach den Server starten und http://127.0.0.1:5000/ im Browser öffnen. Waitress stellt die Anwendung lokal bereit. Projekt- und Plandaten befinden sich im Ordner data/; diesen vor Aktualisierungen sichern.</p><pre><code>python -m pip install -r requirements.txt
-python app.py</code></pre><h2>2. Grundlagen: Projekte und Pläne</h2><p>Projekte verwalten Stern- und Objektlisten mit Standardwerten für maximale Luftmasse, Mondphase, Mindestmondabstand und optionale Geschwindigkeitsgrenzen. Ziele lassen sich manuell hinzufügen, per CSV importieren oder über SIMBAD auflösen. Ein Gaia-G-Magnitudenwert kann übernommen oder eingegeben werden. Projektziele können gefiltert, markiert, verschoben und nach Rektaszension sortiert werden. Änderungen im Projekt wirken nicht rückwirkend auf Plankopien.</p><h2>3. Beobachtungspläne</h2><p>Ein Plan enthält unabhängige Kopien von Projektzielen. Ziele lassen sich per Pfeiltaste oder Drag-and-drop übernehmen und beliebig oft einfügen. Die Reihenfolge kann per Drag-and-drop oder RA-Sortierung geändert werden; markierte Ziele werden getrennt sortiert. Rückgängig/Wiederholen (Strg+Z, Strg+Y oder Strg+Umschalt+Z) verwalten bis zu 30 Änderungen. Im Planmenü befinden sich Einstellungen, Kopieren, CSV-Export und Löschen.</p><h2>4. Nacht- und Jahresdiagramme</h2><p>Datum und Sternwarte wählen und anschließend „Höhe · eine Nacht“ oder „Sichtbare Stunden · ganzes Jahr“ aufrufen. Das Nachtdiagramm zeigt Höhenkurven, Mondhöhe, Dämmerungszonen, UTC-Zeit, Sternzeit und Luftmasse. Hover-Informationen zeigen die Grenzen und die gegebenenfalls berechneten Geschwindigkeitsabstände. Für jede Nacht des Jahres schätzt das Jahresdiagramm die beobachtbaren Stunden unter Berücksichtigung der Grenzwerte. Identische Ziele werden nur einmal berechnet. In den Einstellungen kann das jährliche Beobachtungsfenster auf Sonnenuntergang, bürgerliche, nautische oder astronomische Dämmerung gestellt werden.</p><img src="/docs/images/yearly_visibility_plot.png" alt="Yearly visibility chart" loading="lazy"><h2>5. Beobachtungszeitpläne</h2><p>Im Planmenü „Zeitplan“ als Modus wählen. Die Standard-Belichtungszeit und die Pause können auf bestehende Planziele angewendet werden. Der Start wird auf Sonnenuntergang oder eine der drei Dämmerungsphasen gesetzt; die Voreinstellung ist nautische Dämmerung. Die Dauer eines Blocks ist (Belichtungszeit + Pause) × Anzahl Belichtungen. Die Reihenfolge entspricht der Planliste. Der Start kann per Schieberegler verschoben werden; Leertaste oder „Zeit…“ öffnen die Uhrzeitwahl. Im Diagramm sind Zeitblöcke farbig hinterlegt. Die vollständige Blockdauer wird gegen alle Grenzen geprüft; eine Warnung kennzeichnet verletzte Bedingungen.</p><h2>6. Zielparameter und Grenzwerte</h2><p>Jedes Ziel besitzt Name, RA, Deklination, optionale Gaia-G-Magnitude, maximale Luftmasse, Mondphase, Mindestmondabstand, optionale Mond- und tellurische Geschwindigkeitsgrenzen sowie optionale Radialgeschwindigkeit. Geschwindigkeitsgrenzen gelten nur mit einer Ziel-Radialgeschwindigkeit. Hinzu kommen Belichtungszeit in Sekunden (Dezimalwerte erlaubt), ganzzahlige Anzahl Belichtungen, Pause und Kommentare bis zu 1000 Wörtern. Belichtungsdaten, Blockbeginn und -ende sowie Kommentare werden beim Zeitplanexport ausgegeben.</p><h2>7. Import, Export und Fehlerbehebung</h2><p>Eine CSV-Datei benötigt üblicherweise die Spalten name,ra,dec; weitere Spalten sind optional. Beim Import können vorhandene Ziele ergänzt oder ersetzt werden. Bei Plotproblemen die installierten Python-Pakete prüfen. SIMBAD benötigt eine Internetverbindung, während die Plotbibliothek lokal bereitgestellt wird. Die Sichtbarkeits- und Geschwindigkeitsberechnungen sind Näherungen zur Beobachtungsplanung, keine hochpräzise spektroskopische Auswertung.</p><h2>8. Sprache, Version und Lizenz</h2><p>Unter ☰ Einstellungen → Sprache zwischen English, Deutsch und Español wechseln. Die Auswahl wird im Browser gespeichert. Version 0.6 · Autor/Projektleitung: D. Sebastian, mit Implementierungsunterstützung durch ChatGPT von OpenAI · Lizenz: MIT (siehe LICENSE).</p><p><a href="/help?lang=en">CSV fields, scheduler export and Python API v0.6 (English reference)</a></p></body></html>
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sky Observation Planner — Benutzerhandbuch</title><style>
+:root{color-scheme:light dark}*{box-sizing:border-box}html{scroll-behavior:smooth}body{font:16px/1.67 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:1020px;margin:0 auto;padding:26px 28px 75px;background:#f8fafc;color:#202833}h1,h2,h3{line-height:1.25;scroll-margin-top:28px}h1{font-size:2.05rem;margin:1.1rem 0}h2{font-size:1.5rem;margin:2.5rem 0 1rem;border-bottom:1px solid #cbd5e1;padding-bottom:.4rem}h3{font-size:1.15rem;margin:1.75rem 0 .8rem}a{color:#1167ae}a:hover{text-decoration-thickness:2px}p,li{overflow-wrap:break-word}pre{overflow:auto;background:#e8eef5;padding:1rem 1.15rem;border-radius:9px;line-height:1.5}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em}p code,li code,td code{background:#e8eef5;padding:.08em .25em;border-radius:4px}pre code{background:transparent;padding:0}img{display:block;max-width:100%;height:auto;border-radius:8px;margin:1rem auto}table{border-collapse:collapse;width:100%;font-size:.92rem}td,th{border:1px solid #cbd5e1;padding:10px 12px;text-align:left;vertical-align:top}thead{background:#e8eef5}.table-scroll{overflow-x:auto;margin:1.25rem 0}nav{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;border-bottom:1px solid #cbd5e1;padding-bottom:1rem}nav a{padding:.2rem .6rem;border-radius:6px;text-decoration:none}nav a[aria-current="page"]{background:#dce9f6;font-weight:700}blockquote{border-left:3px solid #a4b4c4;padding-left:1rem}.intro{font-size:1.07rem}@media(max-width:600px){body{padding:15px 14px 45px}h1{font-size:1.65rem}h2{font-size:1.28rem}td,th{padding:7px}}@media(prefers-color-scheme:dark){body{background:#14191f;color:#e0e6ee}h2,nav{border-color:#3a4654}a{color:#84bdff}pre,p code,li code,td code,thead{background:#27313c}td,th{border-color:#465261}nav a[aria-current="page"]{background:#2e4154}}
+</style></head><body><nav aria-label="Language / Sprache / Idioma"><a href="/help?lang=en">English</a><a href="/help?lang=de" aria-current="page">Deutsch</a><a href="/help?lang=es">Español</a></nav><main><h1>Sky Observation Planner</h1>
+<p><strong>Planen Sie Ihre Beobachtungsnacht, untersuchen Sie die Sichtbarkeit Ihrer Ziele und erstellen Sie aus einer Objektliste einen praktikablen Beobachtungszeitplan.</strong></p>
+<p>Sky Observation Planner unterstützt die astronomische Beobachtungsplanung. Ein interaktives <strong>Höhendiagramm für eine Nacht</strong> zeigt die Sichtbarkeit von Zielen an einer ausgewählten Sternwarte; ein <strong>Jahresdiagramm</strong> hilft bei der saisonalen Planung. Beobachtungsgrenzen, Mondposition und weitere Bedingungen lassen sich berücksichtigen, um geeignete Zeitfenster zu finden.</p>
+<p>Beginnen Sie mit einem eigenen CSV-Zielkatalog, dem mitgelieferten Messier-Katalog oder einer Namenssuche in <strong>SIMBAD</strong>. Stellen Sie Ziele zu einem Plan zusammen und erstellen Sie daraus einen zeitlich geordneten Ablauf. Die Anwendung läuft lokal und öffnet sich im Webbrowser; interaktive Diagramme unterstützen Zoom, Hover-Informationen und Bildexport.</p>
+<p><img alt="Sky Observation Planner — Höhendiagramm einer Beobachtungsnacht" loading="lazy" src="/docs/images/altitude_plot.png"/></p>
+<p><em>Beispiel des nächtlichen Höhendiagramms mit Zielsichtbarkeit, Mond und Dämmerungsphasen.</em></p>
+<h2>Erste Schritte</h2>
+<p>Sky Planner verwendet Python, Flask und Astropy. Conda ist praktisch, aber nicht zwingend nötig. Führen Sie die folgenden Befehle im Verzeichnis mit <code>app.py</code> und <code>requirements.txt</code> aus.</p>
+<h3>Python-Abhängigkeiten installieren</h3>
+<p>Wenn Sie Conda verwenden, aktivieren Sie <code>base</code> (beide Desktop-Starter bevorzugen dieses Environment, sofern Conda vorhanden ist):</p>
+<pre><code class="language-bash">conda activate base
+pip install -r requirements.txt
+</code></pre>
+<h3>Sky Planner manuell starten</h3>
+<pre><code class="language-bash">python app.py
+</code></pre>
+<p>Öffnen Sie <strong>http://127.0.0.1:5511</strong> im Browser. Der Standardport ist <code>5511</code>; einen anderen Port können Sie vor dem Start mit <code>SKY_PLANNER_PORT</code> festlegen.</p>
+<h3>GNOME-Desktop-Starter installieren (Ubuntu 24.04 und ähnliche Linux-Systeme)</h3>
+<p>Entpacken Sie das ZIP-Archiv in einen dauerhaften Anwendungsordner und öffnen Sie dort ein Terminal:</p>
+<pre><code class="language-bash">chmod +x launch_sky_planner.sh install_desktop_launcher.sh
+./install_desktop_launcher.sh
+</code></pre>
+<p><strong>Sky Observation Planner</strong> erscheint im GNOME-Anwendungsmenü bzw. bei aktivierten Desktopsymbolen auf dem Desktop. Der Starter aktiviert zunächst Conda <code>base</code>, falls vorhanden; andernfalls versucht er <code>.venv</code>/<code>venv</code> im Projekt und anschließend Python 3.10+ mit allen Abhängigkeiten. Er startet den lokalen Server und öffnet den Standardbrowser. GNOME kann für das Desktop-Symbol <strong>Starten erlauben</strong> verlangen. Nach dem Verschieben des Anwendungsordners den Installer erneut ausführen.</p>
+<p>Ein Neuladen der Browserseite lässt die Serversitzung bestehen. Das Schließen des zugeordneten Tabs/Fensters beendet den Server normalerweise nach zwei Sekunden; wenn das Schließereignis ausbleibt, greift nach 90 Sekunden der Heartbeat-Timeout. Ein schneller erneuter Start verbindet die Sitzung wieder und hebt das bevorstehende Beenden auf. Die Erkennung des Schließens ist nicht in allen Browserfällen garantiert. Es gibt keine separate Verknüpfung zum Stoppen.</p>
+<p><strong>Ohne Conda (Linux oder macOS)</strong> im entpackten Projektverzeichnis:</p>
+<pre><code class="language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+</code></pre>
+<p>Die Starter behalten den bisherigen Conda-Aktivierungsweg bei. <strong>Nur wenn Conda nicht gefunden wird</strong>, suchen sie <code>.venv</code>, <code>venv</code>, <code>python3</code> oder <code>python</code> (Python 3.10+ und sämtliche benötigten Pakete). Wenn Conda gefunden wird, die Aktivierung von <code>base</code> aber fehlschlägt, wird ein Fehler gemeldet und nicht unbemerkt ein anderer Interpreter gewählt. Pakete werden durch die Starter nicht automatisch installiert.</p>
+<h3>macOS-Finder-Starter installieren (Apple Silicon oder Intel)</h3>
+<p>Installieren Sie die Abhängigkeiten entweder in Conda <code>base</code> (z. B. mit <a href="https://github.com/conda-forge/miniforge">Miniforge</a>) oder in einer lokalen virtuellen Umgebung wie oben beschrieben. <strong>Conda ist nicht erforderlich.</strong> Bewahren Sie den entpackten Projektordner dauerhaft auf und führen Sie darin im Terminal aus:</p>
+<pre><code class="language-bash">chmod +x launch_sky_planner_mac.sh install_mac_launcher.sh
+./install_mac_launcher.sh
+</code></pre>
+<p>Dadurch entsteht <strong>~/Applications/Sky Observation Planner.app</strong>. Öffnen Sie die App im Finder oder über die macOS-Suche. Der Starter bevorzugt Conda <code>base</code>, verwendet sonst <code>.venv</code>/<code>venv</code> oder geeignetes System-Python, startet Waitress und öffnet den <strong>Standardbrowser</strong>. Weder PyInstaller noch Administratorrechte sind erforderlich. Die <code>.app</code> verweist auf den Projektordner; nach dessen Verschieben den Installer erneut ausführen. Wenn macOS die heruntergeladene App blockiert, verwenden Sie im Finder das Kontextmenü <strong>Öffnen</strong> oder prüfen <strong>Systemeinstellungen → Datenschutz &amp; Sicherheit</strong>. Führen Sie nur vertrauenswürdigen Code aus.</p>
+<p>Serverprotokoll: <strong>~/Library/Logs/SkyPlanner/server.log</strong>. Beim Start aus dem Terminal können <code>SKY_PLANNER_HOST</code> (Standard <code>127.0.0.1</code>) und <code>SKY_PLANNER_PORT</code> (Standard <code>5511</code>) gesetzt werden. Nach einem Browser-Reload bleibt der Server aktiv; beim Schließen des Sitzungstabs/-fensters beendet er sich normalerweise nach einer <strong>zweisekündigen</strong> Wiederverbindungsfrist. Bei verlorenem Schließsignal greift der <strong>90-Sekunden-Heartbeat-Timeout</strong>. Schnelles erneutes Starten verbindet die bestehende Sitzung und verhindert das Beenden. Das Erkennen des Browser-Schließens funktioniert nach bestem Bemühen; ein zweiter Tab ohne Sitzungstoken hält den zugeordneten Server nicht am Leben.</p>
+<h2>Autor und Lizenz</h2>
+<p><strong>Autor:</strong> D. Sebastian<br/>
+<strong>Lizenz:</strong> MIT License — Copyright © 2026 D. Sebastian. Vollständige Bedingungen in <a href="https://opensource.org/license/mit">LICENSE</a>.</p>
+<h2>2. Grundlagen: Projekte und Pläne</h2>
+<h3>Projekte: wiederverwendbare Zielkataloge</h3>
+<p>Ein <strong>Projekt</strong> ist eine Sammlung astronomischer Ziele mit voreingestellten Beobachtungsgrenzen. Wählen Sie ein Projekt oder erstellen Sie es über <strong>+ New</strong>. Mehrere Projekte können zugleich geöffnet sein. Ziele lassen sich manuell (<strong>+ target</strong>) oder per <strong>Upload</strong> einer CSV-Datei hinzufügen. Bei Internetzugang löst eine <strong>SIMBAD</strong>-Suche Objektnamen in Koordinaten auf. Die Namensauflösung ist unabhängig von optionaler Gaia-G-Photometrie und Radialgeschwindigkeit: fehlende Werte verhindern die Koordinatenauflösung nicht; verfügbare Radialgeschwindigkeit wird ohne zusätzliche Rückfrage übernommen.</p>
+<p>Jedes Ziel hat einen Namen, Rektaszension (RA) und Deklination (Dec). RA wird in Stunden, Dec in Grad angegeben; sexagesimale Werte wie <code>12:30:00</code> und <code>+15:20:00</code> sind zulässig. Ursprüngliche Koordinaten bleiben erhalten, auch wenn die Anzeige anders formatiert wird.</p>
+<p>Im Projektmenü <strong>☰</strong> finden Sie Standardwerte, CSV-Export und Löschen. Ziehen Sie Ziele zum Umordnen oder sortieren Sie numerisch nach RA. Die RA-Sortierung eines Projekts ist unabhängig von der Sortierung im Plan. Suchen, filtern und markieren Sie mehrere Ziele zur gemeinsamen Bearbeitung.</p>
+<h3>Pläne: Beobachtungsziele auswählen</h3>
+<p>Ein <strong>Plan</strong> enthält unabhängige Kopien der Projektziele. Kopieren Sie Ziele per Pfeilsymbol, Mehrfachauswahl oder Drag-and-drop. Ein Ziel darf mehrfach vorkommen. Änderungen oder Löschen einer Plankopie verändern <strong>nicht</strong> das ursprüngliche Projektziel.</p>
+<p>Erstellen Sie einen Plan mit <strong>+ New</strong>. Im Menü <strong>☰</strong> können Sie Einstellungen bearbeiten, den Plan unter neuem Namen kopieren, als CSV exportieren oder löschen. Ziele können durch Ziehen umgeordnet werden; ihre Reihenfolge bestimmt den <strong>Schedule</strong>-Modus. <strong>Sort RA</strong> sortiert alle Planziele oder, falls Ziele markiert sind, nur diese; unmarkierte Ziele behalten ihre Positionen. Die Sortierung wird gespeichert und kann danach per Ziehen verändert werden. <strong>Undo</strong> stellt bis zu 30 vorherige Änderungen an der Zielliste innerhalb der aktuellen Serversitzung wieder her (Sortierung, Reihenfolge, Hinzufügen und Löschen). Die Projektsortierung bleibt davon unabhängig.</p>
+<h3>Zielparameter und Beobachtungsgrenzen</h3>
+<p>Der Zieleditor enthält maximale <strong>Luftmasse (Airmass)</strong>, maximale <strong>Mondbeleuchtung</strong> (<code>bright</code> ≤100 %, <code>gray</code> ≤70 %, <code>dark</code> ≤40 %), minimalen <strong>Mondabstand</strong> in Grad, optionalen <strong>Geschwindigkeitsabstand zum Mondlicht</strong> und zur <strong>tellurischen Komponente</strong> in km/s sowie die optionale <strong>Radialgeschwindigkeit</strong> des Ziels in km/s. Geschwindigkeitsgrenzen werden nur bei vorhandener Ziel-Radialgeschwindigkeit geprüft. Ein leeres Grenzfeld deaktiviert die entsprechende Grenze.</p>
+<p>Daneben werden <strong>Belichtungszeit</strong> (Sekunden), <strong>Anzahl Belichtungen</strong> (positive Ganzzahl), <strong>Pause</strong> (in der Oberfläche Minuten, gespeichert als Sekunden) und <strong>Kommentare</strong> (bis 1.000 Wörter) gespeichert. Belichtungszeit und Pause dürfen Dezimalwerte wie <code>2700.0</code> sein; die Belichtungsanzahl muss ganzzahlig sein.</p>
+<p>Projekt-Standardwerte umfassen Luftmasse, Mondphase, Mondabstand sowie optionale Mond-/tellurische Geschwindigkeitsgrenzen. Sie gelten für neue Projektziele und können auf Wunsch auf vorhandene Projektziele angewendet werden.</p>
+<h2>3. Standorte</h2>
+<p>Die in Astropy vorhandenen Sternwarten stehen zur Auswahl. <a href="https://docs.astropy.org/en/stable/api/astropy.coordinates.EarthLocation.html#astropy.coordinates.EarthLocation.get_site_names">Liste der Standorte in der Astropy-Dokumentation</a>. Geben Sie den Standortnamen ein und übernehmen Sie einen Vorschlag der Autovervollständigung. Weitere Standorte können in <code>sites.py</code> hinzugefügt werden.</p>
+<h2>4. Diagramme</h2>
+<p>Wählen Sie Datum und Beobachtungs-<strong>Location</strong> und dann den Diagrammmodus. <strong>Update</strong> startet die Berechnung; währenddessen erscheint ein animierter <strong>Calculating</strong>-Status. Mit Plotly können Sie zoomen, verschieben, Legenden bedienen und Bilder exportieren. Die Farbgebung der Diagramme ist unabhängig vom umgebenden Webseitendesign; die Webseite folgt dem Hell-/Dunkelmodus des Betriebssystems. Der Trenner zwischen Katalogen und Diagramm ist verschiebbar.</p>
+<h3>Höhe · eine Nacht</h3>
+<p>Dieses Diagramm zeigt die Höhe jedes Ziels im Verlauf der Nacht, die Mondhöhe, Dämmerungsbereiche, UTC-Zeit, lokale Sternzeit und eine Luftmassenachse. Im Titel stehen die berechneten Sonnenereignisse; mit dem Mauszeiger erhalten Sie Erklärungen. Ziel-Tooltips zeigen Höhe, Luftmasse, Mondabstand und relevante Geschwindigkeiten. Abschnitte mit geringer Sichtbarkeit sind abgeschwächt oder durchgestrichen; Warnzeichen markieren Ziele/Blöcke, die Grenzwerte verletzen. Ein Ziel, das unter dem Horizont bleibt, ist <strong>nicht</strong> beobachtbar.</p>
+<h3>Sichtbare Stunden · ganzes Jahr</h3>
+<p><img alt="Sky Observation Planner — Jahressichtbarkeit" loading="lazy" src="/docs/images/yearly_visibility_plot.png"/></p>
+<p>Für jede Nacht des gewählten Jahres schätzt das Diagramm, wie viele Stunden die Beobachtungsgrenzen eingehalten werden. Über <strong>☰ Settings</strong> wählen Sie den Sonnenhöhen-Grenzwert: <strong>Sonnenuntergang (0°)</strong>, <strong>bürgerliche Dämmerung (−6°)</strong>, <strong>nautische Dämmerung (−12°, Standard)</strong> oder <strong>astronomische Dämmerung (−18°)</strong>. Dieselben Grenzen für Luftmasse, Mondphase und -abstand sowie konfigurierte Geschwindigkeitsgrenzen wirken auf die Berechnung. Verletzungen erscheinen an den Jahreskurven. Identische Ziele mit denselben Koordinaten und Grenzen werden nur einmal berechnet und mit einer Anzahl gekennzeichnet.</p>
+<p>Die Sichtbarkeit wird in Zeitschritten von ungefähr zwei Minuten ermittelt. Geschwindigkeits-Ephemeriden werden zwischengespeichert/interpoliert, um wiederholte Jahresberechnungen zu beschleunigen. Besonders nahe an Grenzwerten sind die Ergebnisse als Planungsschätzung zu verstehen.</p>
+<h2>5. Beobachtungen zeitlich planen</h2>
+<p>Stellen Sie im Menü <strong>☰</strong> des Plans den <strong>Mode</strong> von <strong>Plan</strong> auf <strong>Schedule</strong>. Daraufhin erscheinen Zeitplanvorgaben:</p>
+<ul>
+<li><strong>Standard-Belichtungszeit</strong>, optional auf alle vorhandenen Ziele dieses Plans anwendbar.</li>
+<li><strong>Standard-Pause zwischen Belichtungen</strong>, ebenfalls auf vorhandene Planziele anwendbar.</li>
+<li><strong>Beobachtungsbeginn</strong>: <strong>Sonnenuntergang</strong>, <strong>bürgerliche</strong>, <strong>nautische</strong> (Standard) oder <strong>astronomische Dämmerung</strong>.</li>
+</ul>
+<p>Der Zeitplan folgt der <strong>Zielreihenfolge</strong> im Plan. Jedes Ziel bildet einen Beobachtungsblock mit der Dauer</p>
+<p><code>(Belichtungszeit + Pause) × Anzahl Belichtungen</code>.</p>
+<p>Der erste Block beginnt normalerweise bei dem gewählten Dämmerungsereignis für Datum und Sternwarte; alle weiteren folgen in der festgelegten Reihenfolge. Verschieben Sie mit dem Zeitschieber den Startpunkt. Wenn der Schieber fokussiert ist, drücken Sie <strong>Leertaste</strong> oder wählen <strong>Time…</strong>, um die aktuelle Zeit zu wählen, UTC einzugeben oder auf die gewählte Dämmerung zurückzusetzen.</p>
+<p>Ein halbtransparentes Zeitband markiert jeden Beobachtungsblock; die Höhenkurven liegen darüber. Geplante Abschnitte sind hervorgehoben, andere abgeschwächt. Senkrechte Linien markieren Blockbeginn und -ende. Bewegen Sie den Mauszeiger <strong>an eine beliebige Stelle im Block</strong>, um Zieldaten zur UTC-Zeit unter dem Zeiger (Höhe, Luftmasse, Mondabstand und relevante Geschwindigkeiten), Belichtungseinstellungen und die Gesamtgültigkeit des Blocks zu sehen. Andere Zielkurven ersetzen nicht den Zeitplan-Tooltip.</p>
+<p>Ein Block wird über seine <strong>gesamte Dauer</strong> bewertet: Wird irgendwo eine Grenze verletzt, erscheint ein Warnsymbol (auch in der Legende). Zielreihenfolge, hinzugefügte Ziele oder veränderter Start lösen eine erneute Zeitplanbewertung aus. Das <strong>Jahresdiagramm</strong> zeigt weiterhin ungeplante beobachtbare Stunden.</p>
+<h2>CSV-Katalogimport: Referenz</h2>
+<p><strong>Pflichtspalten:</strong> <code>name,ra,dec</code>. Folgende kanonische Felder sind unterstützt. Die Aliase in Spalte drei werden ohne Beachtung der Groß-/Kleinschreibung erkannt. Fehlt eine optionale Beobachtungsangabe, gilt der entsprechende Projektstandard.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>CSV-Feld</th>
+<th>Beschreibung</th>
+<th>Akzeptierte Aliase</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Zielbezeichnung, Pflichtfeld</td>
+<td><code>object</code>, <code>star</code>, <code>target</code>, <code>targets</code></td>
+</tr>
+<tr>
+<td><code>ra</code></td>
+<td>Rektaszension in Stunden (sexagesimal oder dezimal), Pflichtfeld</td>
+<td><code>alpha</code>, <code>right_ascension</code>, <code>rightascension</code></td>
+</tr>
+<tr>
+<td><code>dec</code></td>
+<td>Deklination in Grad, Pflichtfeld</td>
+<td><code>declination</code>, <code>delta</code></td>
+</tr>
+<tr>
+<td><code>gmag</code></td>
+<td>Gaia-G-Magnitude (optional)</td>
+<td><code>gaia_g</code>, <code>gaia_g_magnitude</code>, <code>gaia_gmag</code></td>
+</tr>
+<tr>
+<td><code>moon</code></td>
+<td>Minimaler Mondabstand in Grad</td>
+<td><code>moon_limit</code>, <code>moonlim</code></td>
+</tr>
+<tr>
+<td><code>airmass</code></td>
+<td>Maximale Luftmasse</td>
+<td><code>airlim</code>, <code>airmass_limit</code></td>
+</tr>
+<tr>
+<td><code>phase</code></td>
+<td>Mondbeleuchtung: dark / gray / bright</td>
+<td><code>moon_phase</code>, <code>moonphase</code></td>
+</tr>
+<tr>
+<td><code>radial_velocity</code></td>
+<td>Systemische Radialgeschwindigkeit des Ziels, km/s</td>
+<td><code>rv</code></td>
+</tr>
+<tr>
+<td><code>moon_velocity_limit</code></td>
+<td>Minimaler Geschwindigkeitsabstand zu Mondlicht, km/s</td>
+<td><code>moon_rv_limit</code></td>
+</tr>
+<tr>
+<td><code>telluric_velocity_limit</code></td>
+<td>Minimaler Geschwindigkeitsabstand zur tellurischen Komponente, km/s</td>
+<td><code>telluric_rv_limit</code></td>
+</tr>
+<tr>
+<td><code>exposure_time</code></td>
+<td>Dauer einer Einzelbelichtung, Sekunden</td>
+<td><code>exptime</code></td>
+</tr>
+<tr>
+<td><code>exposures</code></td>
+<td>Anzahl Belichtungen, positive Ganzzahl</td>
+<td><code>nexp</code>, <code>number_of_exposures</code></td>
+</tr>
+<tr>
+<td><code>delay</code></td>
+<td>Pause pro Belichtung, Sekunden</td>
+<td><code>delay_seconds</code></td>
+</tr>
+<tr>
+<td><code>comments</code></td>
+<td>Freitextnotizen</td>
+<td><code>comment</code>, <code>notes</code></td>
+</tr>
+<tr>
+<td><code>add</code></td>
+<td>Veraltetes Auswahlflag; beim Projektimport ignoriert</td>
+<td><code>plot</code>, <code>select</code>, <code>selected</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Hochgeladene CSV-Dateien dürfen auch ein dreispaltiges Format ohne Kopfzeile (<code>name,ra,dec</code>) oder das ältere sechs-/siebenspal­tige Format aus dem Webhandbuch verwenden. <code>tab_test.csv</code> ist ein absichtlich unaufgeräumtes Praxisbeispiel mit gemischten sexagesimalen Koordinaten und ohne Kopfzeile.</p>
+<h2>CSV-Export des Zeitplans</h2>
+<p>Im Modus <strong>Schedule</strong> erzeugt <strong>Download</strong> eine Zeile pro Beobachtungsblock in Planreihenfolge. Die ersten Spalten enthalten die Zielidentität und <strong>berechnete/geplante</strong> UTC-Zeiten für Beginn, Mitte und Ende; Höhe, Luftmasse und Mondabstand werden zu allen drei Zeiten ausgewertet, ebenso baryzentrische, mondlichtbezogene und relative Geschwindigkeiten. Danach folgen Belichtungszeit, Belichtungsanzahl und Pause. <strong>Erst anschließend</strong> erscheinen <code>default_*</code>-Felder mit Beobachtungsgrenzen und Radialgeschwindigkeit des Ziels. Gemessene/berechnete Größen sind somit von eingestellten Grenzen getrennt. Bei fehlender stellarer Radialgeschwindigkeit bleiben die relativen Geschwindigkeiten leer. Der Export berücksichtigt Sternwarte, Datum und ggf. den per Schieber eingestellten UTC-Beginn. Die Werte sind Momentaufnahmen, keine Extrema über den gesamten Block.</p>
+<h2>Python-API (NumPy-Arrays)</h2>
+<pre><code class="language-python">import obs
+targets = obs.read_targets('tab_test.csv')
+night = obs.staralt(targets, location='paranal', date='2027-12-31')
+twilight = obs.twilights(location='paranal', date='2027-12-31')
+year = obs.annual(targets, location='paranal', year=2027)
+</code></pre>
+<p><code>staralt()</code> akzeptiert CSV-Pfade, pandas-DataFrames sowie skalare/vektorielle Astropy-<code>SkyCoord</code>-Werte. Das Ergebnis hat zwei Schlüssel:</p>
+<ul>
+<li><code>time</code>: NumPy-Array <code>datetime64[ns]</code> mit UTC-Zeitpunkten einer Beobachtungsnacht.</li>
+<li><code>targets</code>: Wörterbuch nach Zielnamen; pro Ziel liegen ausgerichtete NumPy-<code>float</code>-Arrays vor: <code>altitude</code> (Grad), <code>airmass</code>, <code>moon_distance</code> (Grad), <code>barycentric_velocity</code> (km/s), <code>moon_velocity</code> (km/s), <code>moon_velocity_difference</code> (km/s), <code>telluric_velocity_difference</code> (km/s). Alle Arrays haben dieselbe Zeitachse. Doppelte Namen erhalten <code>#2</code>, <code>#3</code> usw. Bei fehlender Ziel-Radialgeschwindigkeit sind die beiden relativen Geschwindigkeiten <code>NaN</code>, unter dem Horizont auch die Luftmasse. Dämmerungsangaben oder Diagramm-Metadaten werden nicht zurückgegeben.</li>
+</ul>
+<p><code>twilights()</code> liefert <strong>ausschließlich</strong> ein Ereignis-Wörterbuch mit <code>sunset</code>, <code>nautical_dusk</code>, <code>astronomical_dusk</code>, <code>astronomical_dawn</code>, <code>nautical_dawn</code> und <code>sunrise</code>; die Werte sind UTC-<code>datetime</code>-Objekte oder <code>None</code>, wenn das Ereignis nicht eintritt.</p>
+<p><code>annual()</code> liefert <code>dates</code> (NumPy <code>datetime64[D]</code>, <strong>lokale Kalendertage</strong> des Standorts), <code>time_utc</code> (NumPy <code>datetime64[ns]</code>, abgetastete <strong>lokale mittlere Sonnenmitternacht</strong> gemäß Längengrad) sowie <code>targets</code> (Zielname → Messgrößen-Arrays). Messgrößen: <code>observable_hours</code> (Integral über die ganze Nacht), <code>moon_distance</code>, <code>barycentric_velocity</code>, <code>moon_velocity</code>, <code>moon_velocity_difference</code>, <code>telluric_velocity_difference</code>. Winkel in Grad, Geschwindigkeiten in km/s. Die mittlere lokale Mitternacht richtet sich nach dem Längengrad und nicht nach der zivilen Zeitzone. Jahressichtbarkeitsstunden gehören zur jeweiligen ganzen Nacht, nicht zu einer Momentaufnahme.</p>
+<p>Alle API-Ausgaben dienen der NumPy-Analyse und sind nicht unmittelbar JSON-serialisierbar. Die Webanwendung verwendet weiterhin ihre eigenen unabhängigen JSON-Diagrammschnittstellen.</p>
+</main></body></html>

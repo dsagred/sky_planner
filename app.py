@@ -517,8 +517,12 @@ def desktop_session(action):
     # Session path is created by the trusted launcher, never from a web request.
     if action == "ping":
         (state / "heartbeat").write_text(str(time.time()))
+        # A new page heartbeat cancels a pending close (e.g. after refresh).
+        (state / "closed").unlink(missing_ok=True)
     else:
-        (state / "closed").touch()
+        # pagehide fires for refresh as well as real tab/window closure.
+        # Record the time; the launcher waits for a possible reconnect.
+        (state / "closed").write_text(str(time.time()))
     return "", 204
 
 

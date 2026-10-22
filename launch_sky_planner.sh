@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Launch the local server and a separate browser instance; close both together.
 set -Eeuo pipefail
+umask 077
 APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 APP_HOST="${SKY_PLANNER_HOST:-127.0.0.1}"
 APP_PORT="${SKY_PLANNER_PORT:-5511}"
@@ -9,6 +10,7 @@ URL="http://${APP_HOST}:${APP_PORT}/"
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/sky_planner"
 LOG_FILE="$LOG_DIR/server.log"
 PID_FILE="$LOG_DIR/server.pid"
+ACTIVE_SESSION_FILE="$LOG_DIR/active-session"
 mkdir -p "$LOG_DIR"
 APP_PID=""
 BROWSER_PROFILE=""
@@ -32,6 +34,11 @@ cleanup() {
     wait "$APP_PID" 2>/dev/null || true
     if [[ -f "$PID_FILE" && "$(cat "$PID_FILE")" == "$APP_PID" ]]; then
       rm -f "$PID_FILE"
+    fi
+    # Only remove the published session when it belongs to this launcher.
+    if [[ -f "$ACTIVE_SESSION_FILE" ]]; then
+      read -r active_pid active_token < "$ACTIVE_SESSION_FILE" || true
+      if [[ "${active_pid:-}" == "$APP_PID" ]]; then rm -f "$ACTIVE_SESSION_FILE"; fi
     fi
   fi
   [[ -z "$BROWSER_PROFILE" ]] || rm -rf -- "$BROWSER_PROFILE"
@@ -68,9 +75,44 @@ load_conda() {
   return 1
 }
 
-if ! load_conda || ! conda activate base; then
-  error 'Could not activate Conda base. Check your Conda installation.'
-  exit 1
+# Keep the proven Conda startup path unchanged when Conda is installed.
+# Only fall back when Conda itself cannot be found; do not silently switch
+# interpreters when an installed Conda environment is broken.
+if load_conda; then
+  if ! conda activate base; then
+    error 'Conda was found, but its base environment could not be activated.'
+    exit 1
+  fi
+else
+  # No Conda: use a project virtual environment, then installed Python.
+  # Validate candidates before using them so a Python without dependencies
+  # does not result in an unexplained failed browser/server launch.
+  selected_python=''
+  for candidate in "$APP_DIR/.venv/bin/python" "$APP_DIR/venv/bin/python" python3 python; do
+    if [[ "$candidate" == */* && ! -x "$candidate" ]]; then continue; fi
+    if ! command -v "$candidate" >/dev/null 2>&1; then continue; fi
+    if "$candidate" - <<'PYCHECK' >/dev/null 2>&1
+import importlib.util
+import sys
+assert sys.version_info >= (3, 10)
+for name in ('flask', 'astropy', 'astroquery', 'numpy', 'pandas',
+             'matplotlib', 'plotly', 'markdown', 'waitress'):
+    assert importlib.util.find_spec(name) is not None, name
+PYCHECK
+    then
+      selected_python="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$selected_python" ]]; then
+    error "No usable Python 3.10+ environment found. Install dependencies in a project virtual environment:
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt"
+    exit 1
+  fi
+  # Preserve every existing 'python' invocation in the working launcher.
+  # A Bash function affects this launcher only, including its subprocesses.
+  python() { "$selected_python" "$@"; }
 fi
 cd "$APP_DIR"
 
@@ -85,7 +127,16 @@ PYREADY
 
 # Already-running instance? Open its tab, but never terminate a server we do not own.
 if server_ready; then
-  xdg-open "$URL" >/dev/null 2>&1 || true
+  # A quick relaunch must reconnect the tracked browser session, rather than
+  # opening an untracked tab which the original launcher may soon shut down.
+  reopen_url="$URL"
+  if [[ -f "$ACTIVE_SESSION_FILE" && -f "$PID_FILE" ]]; then
+    read -r active_pid active_token < "$ACTIVE_SESSION_FILE" || true
+    if [[ "${active_pid:-}" == "$(cat "$PID_FILE")" && -n "${active_token:-}" ]] && kill -0 "$active_pid" 2>/dev/null; then
+      reopen_url="${URL}?sky_desktop=${active_token}"
+    fi
+  fi
+  xdg-open "$reopen_url" >/dev/null 2>&1 || true
   exit 0
 fi
 # Do not preflight the port with a temporary bind(). A recently closed
@@ -102,6 +153,7 @@ printf '\n=== Sky Planner desktop session: %s ===\n' "$(date -Is)" >> "$LOG_FILE
 python -u app.py >> "$LOG_FILE" 2>&1 </dev/null &
 APP_PID=$!
 printf '%s\n' "$APP_PID" > "$PID_FILE"
+printf '%s %s\n' "$APP_PID" "$SKY_PLANNER_SESSION_TOKEN" > "$ACTIVE_SESSION_FILE"
 
 ready=0
 for ((i=0; i<60; i++)); do
@@ -121,13 +173,13 @@ if ! xdg-open "$SESSION_URL" >>"$LOG_FILE" 2>&1; then
   exit 1
 fi
 
-# Unlike waiting for the browser executable, the page heartbeat works even if
-# a Snap wrapper hands off the browser process. pagehide sends an immediate
-# close event; if that is missed, a heartbeat timeout is the fallback.
+# A browser pagehide event fires both on refresh and on actual tab closure.
+# Allow the reloaded page to reconnect before honoring a close notification.
+# A missing beacon still falls back to the heartbeat timeout.
+CLOSE_GRACE_SECONDS=2
 seen=0
 missing_since=0
 for ((i=0; i<90; i++)); do
-  if [[ -f "$SESSION_DIR/closed" ]]; then exit 0; fi
   if [[ -f "$SESSION_DIR/heartbeat" ]]; then seen=1; break; fi
   if ! kill -0 "$APP_PID" 2>/dev/null; then
     error 'The Sky Planner server exited unexpectedly.'; exit 1
@@ -139,13 +191,21 @@ if [[ "$seen" != 1 ]]; then
   exit 1
 fi
 while kill -0 "$APP_PID" 2>/dev/null; do
-  if [[ -f "$SESSION_DIR/closed" ]]; then break; fi
-  # To avoid stopping a minimized/background-throttled tab, allow 90 seconds.
+  # The close beacon alone is ambiguous: refresh also triggers pagehide.
+  # A heartbeat from the reloaded page clears the pending close in app.py.
+  # Keep a grace period for slow refreshes and browser startup.
   last="$(cat "$SESSION_DIR/heartbeat" 2>/dev/null || echo 0)"
-  if python - "$last" <<'PYSTALE'
+  closed="$(cat "$SESSION_DIR/closed" 2>/dev/null || echo 0)"
+  if python - "$last" "$closed" "$CLOSE_GRACE_SECONDS" <<'PYSESSION'
 import sys, time
-sys.exit(0 if time.time() - float(sys.argv[1]) > 90 else 1)
-PYSTALE
+last, closed, grace = map(float, sys.argv[1:])
+now = time.time()
+# Respect a close only after the reconnection grace period; if a heartbeat
+# arrived after the close request, it represents a still-open page.
+closed_expired = closed > 0 and now - closed >= grace and last <= closed
+heartbeat_expired = now - last > 90
+sys.exit(0 if closed_expired or heartbeat_expired else 1)
+PYSESSION
   then break; fi
-  sleep 2
+  sleep 0.25
 done

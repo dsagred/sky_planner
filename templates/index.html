@@ -1275,6 +1275,8 @@ loadProjects().then(loadPlans).catch(e => toast(e.message));
   const ping = () => fetch(endpoint + 'ping', {method: 'POST', headers, body, cache: 'no-store'}).catch(() => {});
   ping();
   const timer = setInterval(ping, 2000);
+  // pagehide includes refreshes; the backend waits for the next heartbeat
+  // before treating this as a genuine window/tab close.
   window.addEventListener('pagehide', () => {
     clearInterval(timer);
     navigator.sendBeacon(endpoint + 'close', new Blob([body], {type: 'application/json'}));
