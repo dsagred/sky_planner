@@ -119,12 +119,14 @@ The visibility calculation uses time sampling (approximately two minutes); veloc
 
 ## 5. Scheduling observations
 
+![Sky Observation Planner — interactive scheduler plot for one observing night](docs/images/scheduler.png)
+
 Open the plan **☰** menu and change its **Mode** from **Plan** to **Schedule**. Schedule-only defaults then become visible:
 
 - **Default exposure time**, with an option to apply it to every existing target in that plan.
 - **Default delay between exposures**, with an option to apply the delay to every existing target in that plan.
 - **Start of observation**: **sunset**, **civil**, **nautical** (default) or **astronomical twilight**.
-
+- 
 The schedule uses the plan's **target order**. Each target is an observing block with duration
 
 `(exposure time + delay) × number of exposures`.
