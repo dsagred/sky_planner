@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sky Observation Planner v0.6</title>
+<title>Sky Observation Planner v0.61</title>
 <style>
   :root { --bg:#14171c; --panel:#1d2229; --card:#262d36; --line:#38414d; --fg:#e4e8ee; --dim:#8b96a5; --acc:#4da3ff; --accfg:#06121f; --bad:#ff6b6b; --over:#4da3ff14; color-scheme:dark; }
   @media (prefers-color-scheme: light) { :root:not([data-site-theme=dark]) { --bg:#f3f5f8; --panel:#ffffff; --card:#eef1f5; --line:#cdd5df; --fg:#1b2430; --dim:#5f6c7d; --acc:#1a73e8; --accfg:#ffffff; --bad:#d93025; --over:#1a73e822; color-scheme:light; } }
@@ -49,6 +49,9 @@
   #plan.over { border-color:var(--acc); background:var(--over); }
   .card { background:var(--card); border:1px solid var(--line); border-radius:5px; padding:4px 8px; display:flex; align-items:center; gap:6px; }
   .card.selected { background:var(--over); border-color:var(--acc); }
+  .card.plot-highlight { outline:2px solid #48a7ff; outline-offset:-2px; box-shadow:0 0 0 2px #48a7ff55; }
+  #plan { position:relative; }
+  #planPasteMarker { position:absolute; height:3px; background:#268dff; border-radius:3px; pointer-events:none; z-index:10; box-shadow:0 0 7px #268dff88; }
   .proj.focused-list, #plan.focused-list { border-color:var(--acc); }
   .proj.over, #plan.over { border-color:var(--acc); background:var(--over); }
   .bulkbar { display:flex; flex-wrap:wrap; gap:4px; align-items:center; padding:3px 0; }
@@ -88,7 +91,11 @@
 
   dialog label { display:block; margin:6px 0 2px; color:var(--dim); font-size:12px; }
   dialog input[type=text], dialog input[type=number] { width:100%; }
+  .moon-alt-control { display:flex; gap:6px; align-items:center; width:100%; }
+  .moon-alt-control input { flex:1; min-width:0; width:auto !important; }
+  .moon-alt-control select { flex:none; width:auto; max-width:125px; }
   #toast { position:fixed; bottom:14px; right:14px; background:var(--card); border:1px solid var(--line); padding:8px 12px; border-radius:6px; display:none; max-width:420px; white-space:pre-wrap; z-index:10; }
+  .card { user-select: none; }
 </style>
 </head>
 <body>
@@ -132,7 +139,7 @@
         <label for="uiLanguage" data-i18n="Language">Language / Sprache / Idioma</label><select id="uiLanguage"><option value="en">English</option><option value="de">Deutsch</option><option value="es">Español</option></select>
         <label for="plotTheme">Plot appearance</label><select id="plotTheme"><option value="dark">Dark plot</option><option value="light">Light plot</option></select>
         <label for="sunLimit">Yearly plot — Sun altitude</label><select id="sunLimit"><option value="0">0° — Sunset / sunrise</option><option value="-6">−6° — Civil twilight</option><option value="-12">−12° — Nautical twilight</option><option value="-18">−18° — Astronomical twilight</option></select>
-        <button id="infoBtn">Info · v0.6</button>
+        <button id="infoBtn">Info · v0.61</button>
       </div>
     </span>
     <span id="msg"></span>
@@ -170,6 +177,7 @@
     <label>Moon phase</label><select name="phase"><option value="bright">Bright (100%)</option><option value="gray">Gray (70%)</option><option value="dark">Dark (40%)</option></select>
     <label>Min. Moon distance [deg]</label><input name="moon" type="number" step="any" min="0" max="180">
     <label>Moon velocity limit [km/s] (optional)</label><input name="moon_velocity_limit" type="number" step="any" min="0" placeholder="None">
+    <label>Moon velocity limit applies above Moon altitude [deg]</label><div class="moon-alt-control"><input name="moon_velocity_altitude" type="text" inputmode="decimal" value="3" required aria-label="Moon altitude threshold in degrees" title="Enter any finite number, including negative values"><select class="moon-alt-preset" aria-label="Select a Moon altitude preset" title="Choose a preset Moon altitude"><option value="" selected>Presets ▾</option><option value="-18">−18°</option><option value="-5">−5°</option><option value="0">0°</option><option value="3">3°</option></select></div>
     <label>Telluric velocity limit [km/s] (optional)</label><input name="telluric_velocity_limit" type="number" step="any" min="0" placeholder="None">
     <label>Radial velocity [km/s] (optional)</label><input name="radial_velocity" type="number" step="any" placeholder="None">
     <label>Exposure time [s]</label><input name="exposure_time" type="number" min="0" step="any" required>
@@ -191,6 +199,7 @@
     <label>Default Moon phase</label><select name="phase"><option value="bright">Bright (100%)</option><option value="gray">Gray (70%)</option><option value="dark">Dark (40%)</option></select>
     <label>Default min. Moon distance [deg]</label><input name="moon" type="number" step="any" min="0" max="180" required>
     <label>Default Moon velocity limit [km/s] (optional)</label><input name="moon_velocity_limit" type="number" step="any" min="0" placeholder="None">
+    <label>Moon velocity limit applies above Moon altitude [deg]</label><div class="moon-alt-control"><input name="moon_velocity_altitude" type="text" inputmode="decimal" value="3" required aria-label="Moon altitude threshold in degrees" title="Enter any finite number, including negative values"><select class="moon-alt-preset" aria-label="Select a Moon altitude preset" title="Choose a preset Moon altitude"><option value="" selected>Presets ▾</option><option value="-18">−18°</option><option value="-5">−5°</option><option value="0">0°</option><option value="3">3°</option></select></div>
     <label>Default Telluric velocity limit [km/s] (optional)</label><input name="telluric_velocity_limit" type="number" step="any" min="0" placeholder="None">
     <label id="applyLbl"><input type="checkbox" name="apply"> also apply to the stars already in this project</label>
     <div class="err" style="color:var(--bad);margin-top:8px"></div>
@@ -199,7 +208,8 @@
     </div>
   </form>
 </dialog>
-<dialog id="infoDlg"><div class="dialog-header"><h2>Sky Observation Planner · v0.6</h2><button type="button" class="dialog-close" data-cancel aria-label="Close information" title="Close">×</button></div><p>Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.</p>
+
+<dialog id="infoDlg"><div class="dialog-header"><h2>Sky Observation Planner · v0.61</h2><button type="button" class="dialog-close" data-cancel aria-label="Close information" title="Close">×</button></div><p>Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.</p>
 <p><a href="/help" id="helpLink" target="_blank" rel="noopener">User guide and accepted CSV formats</a></p>
 <p><strong>GNOME launcher:</strong> Run <code>./install_desktop_launcher.sh</code> in the extracted application folder on Ubuntu/GNOME. This activates Conda base and opens your default browser.</p><p><strong>Licence:</strong> MIT License — <a href="/license" target="_blank" rel="noopener">read licence</a>.</p>
 <p><strong>Software implementation:</strong> ChatGPT (OpenAI, GPT-6), 11 October 2026.<br><strong>Co-author / project direction:</strong> instructed by D. Sebastian.</p>
@@ -257,7 +267,7 @@ function localizeDocument(){
   translatingUI=true;
   try{
     document.documentElement.lang=uiLanguage;
-    document.title='Sky Observation Planner v0.6';
+    document.title='Sky Observation Planner v0.61';
     const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
     let node;
     while((node=walker.nextNode())){
@@ -403,11 +413,6 @@ $('#toggleAll').onclick = () => {const all=!!open.length&&open.every(n=>collapse
 
 const keyFor = (scope, name) => `${scope}:${name}`;
 const selectedIds = (scope, name) => [...(selected.get(keyFor(scope,name)) || [])];
-function toggleSelected(scope,name,id,checked) {
-  const k=keyFor(scope,name), set=selected.get(k)||new Set();
-  checked ? set.add(id) : set.delete(id); selected.set(k,set);
-  renderProjects(); renderPlanStars();
-}
 function raValue(t) {
   const nums=String(t.ra).match(/\d+(?:\.\d+)?/g)||[];
   return nums.reduce((v,n,i)=>v+Number(n)/60**i,0)%24;
@@ -415,8 +420,8 @@ function raValue(t) {
 // Find the largest circular gap in RA, including the 24h -> 0h boundary.
 // Only rotate the sorted list if this gap is substantially larger than the
 // mean 24/n spacing; otherwise retain 00h as the natural starting point.
-function ordered(stars, scope) {
-  if (scope === 'plan' || !sortProjectsRA || stars.length < 2) return stars;
+function circularRaSort(stars) {
+  if (stars.length < 2) return [...stars];
   const sorted = [...stars].sort((a,b)=>raValue(a)-raValue(b)||a.id-b.id);
   const values = sorted.map(raValue), n = values.length;
   let maxGap = -1, start = 0;
@@ -428,10 +433,43 @@ function ordered(stars, scope) {
   if (maxGap <= 1.5*24/n) return sorted;
   return sorted.slice(start).concat(sorted.slice(0,start));
 }
+function ordered(stars, scope) {
+  return scope === 'plan' || !sortProjectsRA ? stars : circularRaSort(stars);
+}
+// Reordering is always performed on the stored plan IDs, so it is undoable.
+async function savePlanOrder(ids) {
+  if(ids.every((id,i)=>id===planStars[i].id)) return;
+  await api(PL()+'/reorder',{json:{ids}});
+  await loadPlans(); schedulePlot();
+}
+// Move a block of selected plan targets before the requested row, or to the end.
+async function placePlanTargets(ids, beforeId=null) {
+  const existing=planStars.map(t=>t.id), picked=new Set(ids.filter(id=>existing.includes(id)));
+  if(!picked.size)return;
+  const block=existing.filter(id=>picked.has(id));
+  const rest=existing.filter(id=>!picked.has(id));
+  const index=beforeId===null ? rest.length : rest.indexOf(beforeId);
+  if(index<0)return toast('Choose an unselected destination row');
+  rest.splice(index,0,...block);
+  await savePlanOrder(rest);
+}
+function cutPlanSelection() {
+  const ids=planStars.map(t=>t.id).filter(id=>selectedIds('plan',plan).includes(id));
+  if(!ids.length)return toast('Select plan targets first');
+  clipboard={source:{kind:'plan',name:plan},ids,move:true};
+  renderPlanStars();toast(`${ids.length} target(s) cut · hover between plan targets and press Ctrl+V`);
+}
+function samePlanCut() {return clipboard?.move && clipboard.source.kind==='plan' && clipboard.source.name===plan;}
+async function pasteWithinPlan(beforeId=null) {
+  if(!samePlanCut())return;
+  const ids=clipboard.ids;
+  await placePlanTargets(ids,beforeId);
+  clipboard=null;renderPlanStars();
+}
 function sortButton() {return btn('Sort RA', 'Sort selected targets by RA (or all if none selected), keeping other target positions', guard(async()=>{
   const current=[...planStars], picked=selectedIds('plan',plan);
   const subset=picked.length ? new Set(picked) : new Set(current.map(t=>t.id));
-  const sorted=current.filter(t=>subset.has(t.id)).sort((a,b)=>raValue(a)-raValue(b)||a.id-b.id);
+  const sorted=circularRaSort(current.filter(t=>subset.has(t.id)));
   let n=0;const ids=current.map(t=>subset.has(t.id)?sorted[n++].id:t.id);
   await api(PL()+'/reorder',{json:{ids}});await loadPlans();schedulePlot();
 }));}
@@ -471,7 +509,7 @@ async function modifySelection(scope,name) {
 function selectionBar(scope,name,shown) {
   const ids=selectedIds(scope,name);
   return el('div',{className:'bulkbar'},
-    ...(scope==='plan' ? [(()=>{const ids=selectedIds(scope,name);const all=shown.length>0&&shown.every(t=>ids.includes(t.id));const cb=el('input',{type:'checkbox',checked:all,title:'Select or unselect all plan targets'});cb.indeterminate=!all&&ids.length>0;cb.onchange=e=>{selected.set(keyFor(scope,name),e.target.checked?new Set(shown.map(t=>t.id)):new Set());renderPlanStars();};return el('label',{className:'select-all',title:'Select all plan targets'},cb);})(),sortButton(),undoButton(),redoButton()] : []),
+    ...(scope==='plan' ? [(()=>{const ids=selectedIds(scope,name);const all=shown.length>0&&shown.every(t=>ids.includes(t.id));const cb=el('input',{type:'checkbox',checked:all,title:'Select or unselect all plan targets'});cb.indeterminate=!all&&ids.length>0;cb.onchange=e=>{selected.set(keyFor(scope,name),e.target.checked?new Set(shown.map(t=>t.id)):new Set());renderPlanStars();};return el('label',{className:'select-all',title:'Select all plan targets'},cb);})(),sortButton(),undoButton(),redoButton(), ...(ids.length?[btn('Cut','Cut selected targets for pasting elsewhere in this plan',cutPlanSelection)]:[])] : []),
     ...(ids.length ? [el('span',{textContent:`${ids.length} selected · Ctrl+C to copy · Ctrl+X to move · Ctrl+V to paste`}),
       btn('Modify','Change limits for selected targets',()=>modifySelection(scope,name)),
       btn('Delete','Delete selected targets',()=>deleteSelection(scope,name))] : []));
@@ -482,6 +520,36 @@ function focusedDestination() {
 }
 let activeList=null;
 const lastClicked=new Map();
+// A single selection path for cards and checkboxes. Shift selects a range in
+// the current visible order; Ctrl/Cmd toggles individual rows.
+function visibleSelectionRows(scope,name) {
+  if(scope==='plan')return planStars;
+  const q=$('#filter').value.trim().toLowerCase();
+  return ordered((pdata[name]||[]).filter(t=>t.name.toLowerCase().includes(q)),'project');
+}
+function selectTargetRow(scope,name,id,e,checkbox=false) {
+  const k=keyFor(scope,name), previous=selected.get(k)||new Set();
+  const additive=e.ctrlKey||e.metaKey;
+  if(e.shiftKey){
+    const rows=visibleSelectionRows(scope,name);
+    const anchor=lastClicked.get(k);
+    const a=rows.findIndex(t=>t.id===anchor),b=rows.findIndex(t=>t.id===id);
+    const range=a<0||b<0?[id]:rows.slice(Math.min(a,b),Math.max(a,b)+1).map(t=>t.id);
+    const next=additive?new Set(previous):new Set();
+    range.forEach(value=>next.add(value));
+    selected.set(k,next);
+    if(a<0)lastClicked.set(k,id);
+  }else if(additive || checkbox){
+    const next=new Set(previous);
+    if(next.has(id))next.delete(id);else next.add(id);
+    selected.set(k,next);lastClicked.set(k,id);
+  }else{
+    selected.set(k,new Set([id]));lastClicked.set(k,id);
+  }
+  setActiveList(scope,name);
+  if(scope==='plan')plotHighlightedId=null;
+  renderProjects();renderPlanStars();
+}
 function setActiveList(scope,name) {
   activeList={kind:scope,name};
   document.querySelectorAll('.proj,#plan').forEach(node=>node.classList.remove('focused-list'));
@@ -496,7 +564,10 @@ async function transfer(payload,destination,move=false) {
   if(!payload?.ids?.length || !destination) return;
   // Project targets are library entries: transfers from a project always copy.
   move = Boolean(move && payload.source.kind === 'plan');
-  if(move && payload.source.kind===destination.kind && payload.source.name===destination.name) return;
+  if(move && payload.source.kind===destination.kind && payload.source.name===destination.name) {
+    if(destination.kind==='plan')await placePlanTargets(payload.ids);
+    return;
+  }
   const result=await api('/api/targets/transfer',{json:{...payload,destination,move}});
   if(move) selected.delete(keyFor(payload.source.kind,payload.source.name));
   await loadProjects(); await loadPlans(); schedulePlot();
@@ -522,24 +593,53 @@ document.addEventListener('keydown',e=>{
   if(key==='c'||key==='x'){
     const ids=selectedIds(dest.kind,dest.name);if(!ids.length)return;
     clipboard={source:dest,ids,move:key==='x' && dest.kind==='plan'};
-    toast(`${ids.length} target(s) ${clipboard.move?'cut':'copied'} · select destination and press Ctrl+V`);
-  }else if(clipboard){guard(async()=>{await transfer(clipboard,dest,clipboard.move);if(clipboard.move)clipboard=null;})();}
+    if(clipboard.move)renderPlanStars();
+    toast(`${ids.length} target(s) ${clipboard.move?'cut':'copied'} · ${clipboard.move?'hover between plan rows and press Ctrl+V':'select destination and press Ctrl+V'}`);
+  }else if(clipboard){guard(async()=>{if(samePlanCut() && dest.kind==='plan' && dest.name===plan){if(!Number.isInteger(planPasteIndex))return toast('Hover over a gap in the plan to choose a paste position'); const rows=planStars.filter(t=>!clipboard.ids.includes(t.id)); const beforeId=rows[planPasteIndex]?.id??null; await pasteWithinPlan(beforeId);clearPlanPasteMarker();}else{await transfer(clipboard,dest,clipboard.move);if(clipboard.move)clipboard=null;}})();}
 });
-let dragReorderId = null, dragProjectReorder = null;
+let dragReorderIds = null, dragProjectReorder = null;
+let planPasteIndex=null, plotHighlightedId=null;
+function clearPlanPasteMarker(){planPasteIndex=null;document.getElementById('planPasteMarker')?.remove();}
+function updatePlanPasteMarker(e){
+  if(!samePlanCut() || dragReorderIds?.length){clearPlanPasteMarker();return;}
+  const box=$('#plan'), rows=[...box.querySelectorAll('.card[data-target-id]')].filter(c=>!clipboard.ids.includes(Number(c.dataset.targetId)));
+  const y=e.clientY;let idx=rows.findIndex(row=>y < row.getBoundingClientRect().top+row.offsetHeight/2);
+  if(idx<0)idx=rows.length;
+  const boundary=idx<rows.length?rows[idx].getBoundingClientRect().top:(rows.length?rows.at(-1).getBoundingClientRect().bottom:box.getBoundingClientRect().top+8);
+  const bounds=box.getBoundingClientRect();
+  let marker=document.getElementById('planPasteMarker');if(!marker){marker=el('div',{id:'planPasteMarker'});box.append(marker);}
+  marker.style.top=(boundary-bounds.top+box.scrollTop-2)+'px';marker.style.left='8px';marker.style.right='8px';
+  planPasteIndex=idx;
+}
+function focusPlotTarget(index){
+  const t=planStars[index];if(!t)return;
+  plotHighlightedId=t.id;
+  selected.set(keyFor('plan',plan),new Set([t.id]));setActiveList('plan',plan);
+  renderPlanStars();
+  const box=$('#plan'),row=[...box.querySelectorAll('.card[data-target-id]')].find(c=>c.dataset.targetId===String(t.id));
+  if(row){
+    // Measure in viewport coordinates: offsetTop may be relative to a different offset parent.
+    const boxRect=box.getBoundingClientRect(), rowRect=row.getBoundingClientRect();
+    const desired=box.scrollTop+(rowRect.top-boxRect.top)-box.clientHeight/3;
+    const maxScroll=Math.max(0,box.scrollHeight-box.clientHeight);
+    box.scrollTo({top:Math.min(maxScroll,Math.max(0,desired)),behavior:'smooth'});
+  }
+}
+
 function starCard(t, scope, project) {
   const c = el('div', {className: 'card', title: `RA ${t.ra}   Dec ${t.dec}`});
   const name=scope==='plan'?plan:project;
   const cb=el('input',{type:'checkbox',checked:selectedIds(scope,name).includes(t.id),title:'Select this target'});
-  cb.onchange=e=>{setActiveList(scope,name);toggleSelected(scope,name,t.id,e.target.checked);};c.append(cb);
-  c.onclick=e=>{if(e.target.closest('button,input'))return;setActiveList(scope,name);const ids=selectedIds(scope,name);if(e.ctrlKey||e.metaKey){toggleSelected(scope,name,t.id,!ids.includes(t.id));}else if(e.shiftKey){const rows=scope==='plan'?ordered(planStars,'plan'):ordered(pdata[name]||[],'project');const last=lastClicked.get(keyFor(scope,name))??t.id;const a=rows.findIndex(x=>x.id===last),b=rows.findIndex(x=>x.id===t.id);selected.set(keyFor(scope,name),new Set(rows.slice(Math.min(a,b),Math.max(a,b)+1).map(x=>x.id)));renderProjects();renderPlanStars();}else{selected.set(keyFor(scope,name),new Set([t.id]));renderProjects();renderPlanStars();}lastClicked.set(keyFor(scope,name),t.id);};
+  cb.onclick=e=>{e.stopPropagation();if(e.shiftKey)e.preventDefault();selectTargetRow(scope,name,t.id,e,true);};c.append(cb);
+  c.onclick=e=>{if(e.target.closest('button,input'))return;if(e.shiftKey)e.preventDefault();selectTargetRow(scope,name,t.id,e);};
   if(cb.checked)c.classList.add('selected');
   c.append(el('div', {className: 't'}, el('div', {className: 'n', textContent: t.name}),
               el('div', {className: 'c', textContent: (scope==='plan' && currentPlanSettings().mode==='schedule' ? `${t.ra_disp} ${t.dec_disp} · Gmag ${t.gmag == null ? '—' : Number(t.gmag).toFixed(2)} · ${t.exposure_time}s × ${t.exposures} exp.` : `${t.ra_disp} ${t.dec_disp} · moon ≥${t.moon}° · X ≤${t.airmass} · phase ${t.phase || 'bright'}`)})));
   if (scope === 'plan' && t.project) c.append(el('span', {className: 'tag', textContent: t.project, title: 'Taken from this project'}));
   c.draggable = true;
   c.dataset.targetId = String(t.id);
-  c.ondragstart = e => {dragReorderId = scope === 'plan' ? t.id : null; dragProjectReorder = scope === 'project' ? {name:project,id:t.id} : null; setActiveList(scope,name);const payload=selectedPayload(scope,name,t.id);e.dataTransfer.setData('application/x-sky-targets',JSON.stringify(payload));e.dataTransfer.setData('text/plain',JSON.stringify(payload));e.dataTransfer.effectAllowed='copyMove';};
-  c.ondragend = () => { dragReorderId = null; dragProjectReorder = null; };
+  c.ondragstart = e => {dragReorderIds = scope === 'plan' ? selectedPayload(scope,name,t.id).ids : null; dragProjectReorder = scope === 'project' ? {name:project,id:t.id} : null; setActiveList(scope,name);const payload=selectedPayload(scope,name,t.id);e.dataTransfer.setData('application/x-sky-targets',JSON.stringify(payload));e.dataTransfer.setData('text/plain',JSON.stringify(payload));e.dataTransfer.effectAllowed='copyMove';};
+  c.ondragend = () => { dragReorderIds = null; dragProjectReorder = null; };
   if (scope === 'project') {
     c.append(btn('→', 'Add a copy of this star to the plan (also by dragging)', () => addToPlan(project, [t.id])));
   }
@@ -662,6 +762,33 @@ $('#file').onchange = guard(async e => {
   await refreshProject(uploadTo);
 });
 
+// Moon-altitude input stays freely editable; the separate selector always shows all presets.
+for (const selector of document.querySelectorAll('.moon-alt-preset')) {
+  selector.addEventListener('change', () => {
+    if (selector.value !== '') {
+      const input = selector.closest('.moon-alt-control').querySelector('input');
+      input.value = selector.value;
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+    selector.value = ''; // Keep the full preset list available on the next opening.
+  });
+}
+function validMoonAltitude(form) {
+  const input = form.elements.moon_velocity_altitude;
+  const value = input.value.trim();
+  const parsed = Number(value);
+  if (!value || !Number.isFinite(parsed) || parsed < -1e9 || parsed > 1e9) {
+    input.setCustomValidity('Enter a finite Moon altitude between -1000000000 and 1000000000.');
+    input.reportValidity();
+    return false;
+  }
+  input.setCustomValidity('');
+  return true;
+}
+for (const form of [$('#projForm'), $('#starForm')]) {
+  form.elements.moon_velocity_altitude.addEventListener('input', e => e.target.setCustomValidity(''));
+}
+
 // ---- project dialog (new / default limits)
 let projCtx = null;
 function openProjDialog(name) {
@@ -672,6 +799,7 @@ function openProjDialog(name) {
   f.name.required = !name;
   f.moon.value = info ? info.moon : 30; f.airmass.value = info ? info.airmass : 1.6; f.phase.value = info?.phase || 'bright';
   for (const key of ['moon_velocity_limit','telluric_velocity_limit']) f.elements[key].value = info?.[key] ?? '';
+  f.elements.moon_velocity_altitude.value = info?.moon_velocity_altitude ?? 3;
   f.apply.checked = false; $('#applyLbl').hidden = !name;
   f.querySelector('.err').textContent = '';
   $('#projDlg').showModal();
@@ -679,8 +807,10 @@ function openProjDialog(name) {
 $('#newProject').onclick = () => openProjDialog(null);
 $('#projForm').onsubmit = async e => {
   e.preventDefault();
+  if (!validMoonAltitude(e.target)) return;
   const f = e.target, body = {moon: f.moon.value, airmass: f.airmass.value, phase: f.phase.value,
     moon_velocity_limit: f.elements.moon_velocity_limit.value || null,
+    moon_velocity_altitude: f.elements.moon_velocity_altitude.value,
     telluric_velocity_limit: f.elements.telluric_velocity_limit.value || null};
   try {
     if (projCtx === null) {
@@ -704,6 +834,7 @@ function openStarDialog(scope, name, t) {
   f.name.value = t ? t.name : ''; f.ra.value = t ? t.ra : ''; f.dec.value = t ? t.dec : '';
   f.elements.gmag.value = t?.gmag ?? "";
   f.moon.value = t ? t.moon : def.moon; f.airmass.value = t ? t.airmass : def.airmass; f.phase.value = t?.phase || def.phase || 'bright';
+  f.elements.moon_velocity_altitude.value = t?.moon_velocity_altitude ?? def.moon_velocity_altitude ?? 3;
   for (const key of ['radial_velocity','moon_velocity_limit','telluric_velocity_limit']) f.elements[key].value = t ? (t[key] ?? '') : (key === 'radial_velocity' ? '' : (def[key] ?? ''));
   f.elements.exposure_time.value = t?.exposure_time ?? 1200;
   f.elements.exposures.value = t?.exposures ?? 1;
@@ -714,10 +845,12 @@ function openStarDialog(scope, name, t) {
 }
 $('#starForm').onsubmit = async e => {
   e.preventDefault();
+  if (!validMoonAltitude(e.target)) return;
   const f = e.target, {scope, name, id} = starCtx;
   const body = {name: f.name.value, ra: f.ra.value, dec: f.dec.value, gmag: f.elements.gmag.value || null, moon: f.moon.value, airmass: f.airmass.value, phase: f.phase.value,
     radial_velocity: f.elements.radial_velocity.value || null,
     moon_velocity_limit: f.elements.moon_velocity_limit.value || null,
+    moon_velocity_altitude: f.elements.moon_velocity_altitude.value,
     telluric_velocity_limit: f.elements.telluric_velocity_limit.value || null,
     exposure_time: f.elements.exposure_time.value, exposures: f.elements.exposures.value,
     delay: Number(f.elements.delay_minutes.value) * 60, comments: f.elements.comments.value};
@@ -755,6 +888,7 @@ async function loadPlans() {
   plans.forEach(p => sel.add(new Option(`${p.name} (${p.count})`, p.name)));
   sel.value = plan;
   planStars = await api(PL() + '/targets');
+  plotHighlightedId=null;
   $('#scheduleBar').hidden=currentPlanSettings().mode!=='schedule'||kind!=='night';
   renderPlanStars();
 }
@@ -764,26 +898,33 @@ function renderPlanStars() {
   $('#nPlan').textContent = `· ${planStars.length} stars`;
   if (!planStars.length) box.append(el('div', {className: 'empty', textContent: 'Drag stars from a project here (or use → ).'}));
   planStars.forEach(t => box.append(starCard(t, 'plan', null)));
+  if(plotHighlightedId!=null){const row=[...box.querySelectorAll('.card[data-target-id]')].find(c=>c.dataset.targetId===String(plotHighlightedId));row?.classList.add('plot-highlight');}
+  clearPlanPasteMarker();
   enableDrop(box,'plan',plan);
-  // Same-plan drag reorders instead of creating a duplicate target.
+  if(!box.dataset.pasteWired){box.dataset.pasteWired='1';box.addEventListener('mousemove',updatePlanPasteMarker);box.addEventListener('mouseleave',clearPlanPasteMarker);box.addEventListener('scroll',clearPlanPasteMarker);}
+  // Reorder the selected group as a contiguous block, keeping its original order.
+  // Capture before the generic cross-list drop handler.
   if (!box.dataset.reorderWired) {
-  box.dataset.reorderWired = '1';
-  box.addEventListener('dragover', e => {
-    if (!dragReorderId || !e.target.closest('.card[data-target-id]')) return;
-    e.preventDefault(); e.stopPropagation();
-    const target = e.target.closest('.card[data-target-id]');
-    if (target.dataset.targetId !== String(dragReorderId)) {
-      const before = e.clientY < target.getBoundingClientRect().top + target.offsetHeight / 2;
-      box.insertBefore(box.querySelector(`[data-target-id="${dragReorderId}"]`), before ? target : target.nextSibling);
-    }
-  }, true);
-  box.addEventListener('drop', e => {
-    if (!dragReorderId) return;
-    e.preventDefault(); e.stopPropagation();
-    const ids = [...box.querySelectorAll('.card[data-target-id]')].map(x => Number(x.dataset.targetId));
-    dragReorderId = null;
-    guard(async () => { await api(PL() + '/reorder', {json:{ids}}); await loadPlans(); schedulePlot(); })();
-  }, true);
+    box.dataset.reorderWired='1';
+    box.addEventListener('dragover',e=>{
+      if(!dragReorderIds?.length)return;
+      e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';
+      const row=e.target.closest('.card[data-target-id]');
+      if(!row||!box.contains(row))return;
+      const picked=new Set(dragReorderIds);
+      const moving=[...box.querySelectorAll('.card[data-target-id]')].filter(c=>picked.has(Number(c.dataset.targetId)));
+      if(!moving.length||picked.has(Number(row.dataset.targetId)))return;
+      const before=e.clientY < row.getBoundingClientRect().top+row.offsetHeight/2;
+      const reference=before?row:row.nextSibling;
+      moving.forEach(c=>box.insertBefore(c,reference));
+    },true);
+    box.addEventListener('drop',e=>{
+      if(!dragReorderIds?.length)return;
+      e.preventDefault();e.stopPropagation();
+      const ids=[...box.querySelectorAll('.card[data-target-id]')].map(c=>Number(c.dataset.targetId));
+      dragReorderIds=null;
+      guard(()=>savePlanOrder(ids))();
+    },true);
   }
 }
 async function addToPlan(project, ids) {
@@ -947,12 +1088,15 @@ const draw = (traces, layout, nightHelp = null) => {
     if(ax?.range) initialAxes[key+'.range'] = [...ax.range];
   }
   currentTraces=traces;
+  const plotTraces=traces.map(({skyTargetIndex,...trace})=>trace);
   currentNightHelp=nightHelp;
   const mode=legendMode($('#plotbox').getBoundingClientRect().width);
   currentLegendMode=mode;
   const isNight=!!nightHelp || layout.meta?.nightPlot===true;
   currentLayout={...layout, meta:{...(layout.meta||{}), nightPlot:isNight}, ...responsiveLayout(mode,isNight)};
-  return Plotly.react('plot', traces, currentLayout, CONFIG).then(() => {
+  return Plotly.react('plot', plotTraces, currentLayout, CONFIG).then(() => {
+    const plotNode=$('#plot');
+    if(!plotNode._skyClickWired){plotNode.on('plotly_click',onTargetPlotClick);plotNode._skyClickWired=true;}
     attachNightTitleHelp(nightHelp);
     scheduleResponsivePlot();
   });
@@ -1002,7 +1146,7 @@ function addScheduleBlocks(d,traces,th){
       if(air===null||air>tg.airmass_limit)reasons.add('Airmass limit violated');
       if(sep===null||sep<tg.moon_limit+3)reasons.add('Moon dis. limit violated');
       if(phase!==null&&phase>tg.phase_limit)reasons.add('Moon phase limit violated');
-      if(tg.moon_velocity_limit!=null&&tg.radial_velocity!=null){const v=valueAt(tg.moon_velocity_difference,t);if(v===null||v<tg.moon_velocity_limit)reasons.add('Moon vel. limit violated');}
+      if(tg.moon_velocity_limit!=null&&tg.radial_velocity!=null && (valueAt(d.moon_alt,t) ?? -90) >= (tg.moon_velocity_altitude ?? 3)){const v=valueAt(tg.moon_velocity_difference,t);if(v===null||v<tg.moon_velocity_limit)reasons.add('Moon vel. limit violated');}
       if(tg.telluric_velocity_limit!=null&&tg.radial_velocity!=null){const v=valueAt(tg.telluric_velocity_difference,t);if(v===null||v<tg.telluric_velocity_limit)reasons.add('Telluric vel. limit violated');}
     };
     for(let t=begin;t<=finish;t+=60000)test(t);
@@ -1101,6 +1245,19 @@ function installScheduleHover(d){
   document.getElementById('blockHover')?.remove();
 }
 const plotHoverRoot=$('#plot');
+const onTargetPlotClick=event=>{
+  const point=event.points?.find(p=>Number.isInteger(currentTraces?.[p.curveNumber]?.skyTargetIndex));
+  if(point)focusPlotTarget(currentTraces[point.curveNumber].skyTargetIndex);
+};
+plotHoverRoot.addEventListener('click',e=>{
+  if(!scheduleHoverData || e.target.closest('.legend,.modebar'))return;
+  const ax=plotHoverRoot._fullLayout?.xaxis,yax=plotHoverRoot._fullLayout?.yaxis;if(!ax||!yax)return;
+  const bounds=plotHoverRoot.getBoundingClientRect(),x=e.clientX-bounds.left-ax._offset,y=e.clientY-bounds.top;
+  if(x<0||x>ax._length||y<yax._offset||y>yax._offset+yax._length)return;
+  const date=ax.p2d(x),ms=typeof date==='number'?date:Date.parse(/(?:Z|[+-]\d\d:?\d\d)$/.test(String(date))?date:String(date).replace(' ','T')+'Z');
+  const block=scheduleHoverData.schedule_blocks.find(b=>ms>=b.begin&&ms<=b.finish);
+  if(block)focusPlotTarget(block.index);
+});
 plotHoverRoot.addEventListener('mousemove',e=>{
   document.getElementById('blockHover')?.remove();
   if(!scheduleHoverData||!plotHoverRoot._fullLayout?.xaxis)return;
@@ -1161,20 +1318,20 @@ function renderNight(d, th) {
     const hoverlabel = {bgcolor: mutedHoverColour(color), font: {color: '#ffffff'}};
     traces.push({x: d.t, y: pick(above.map((up, k) => up && !cross[k] && !airBad[k])), name: label,
                  legendgroup: tg.name + i, mode: 'lines', line: {color, width: 2.5},
-                 customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER)});
+                 customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER), skyTargetIndex:i});
     if (faint.some(Boolean)) {
       // Include neighboring accepted samples to visually join the dim track.
       const touch = faint.map((bad, k) => bad || (above[k] && !cross[k] &&
                         ((k > 0 && faint[k - 1]) || (k < n - 1 && faint[k + 1]))));
       traces.push({x: d.t, y: pick(touch), name: label, legendgroup: tg.name + i,
                    showlegend: false, mode: 'lines', opacity: FAINT, line: {color, width: 2},
-                   customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER)});
+                   customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER), skyTargetIndex:i});
     }
     if (cross.some(Boolean)) {
       traces.push({x: d.t, y: pick(cross), name: label, legendgroup: tg.name + i,
                    showlegend: false, mode: 'markers',
                    marker: {symbol: 'x', size: 7, color, opacity: 0.42, line: {width: 1}},
-                   customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER)});
+                   customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER), skyTargetIndex:i});
     }
   });
   if (d.plan_settings?.mode==='schedule') {
@@ -1220,13 +1377,13 @@ function renderYear(d, th) {
       '<br>limits: Moon dis. ≥%{customdata[0]:.0f}°, airmass ≤%{customdata[1]:.2f}, phase %{customdata[2]} (≤%{customdata[3]:.0f}%)' +
       '<br>%{customdata[4]}<extra></extra>';
     traces.push({x: d.dates, y: tg.hours, name: displayName, mode: 'lines',
-      line: {color, width: 2.5}, customdata: cd, hoverlabel, hovertemplate});
+      line: {color, width: 2.5}, customdata: cd, hoverlabel, hovertemplate, skyTargetIndex:i});
     // Subdued crosses mark dates on which at least one limit is violated.
     // Keep the full curve showing the resulting observable hours.
     const bad = (tg.violations || []).map(v => !!v);
     if (bad.some(Boolean)) traces.push({x: d.dates, y: tg.hours.map((v,k) => bad[k] ? v : null),
       name: displayName, legendgroup: tg.name + i, showlegend: false, mode: 'markers',
-      marker: {symbol: 'x', size: 5, color, opacity: 0.45}, customdata: cd, hoverlabel, hovertemplate});
+      marker: {symbol: 'x', size: 5, color, opacity: 0.45}, customdata: cd, hoverlabel, hovertemplate, skyTargetIndex:i});
   });
   draw(traces, {
     ...common(th, d.title, {l: 48, r: 175, t: 65, b: 65}),
@@ -1275,8 +1432,6 @@ loadProjects().then(loadPlans).catch(e => toast(e.message));
   const ping = () => fetch(endpoint + 'ping', {method: 'POST', headers, body, cache: 'no-store'}).catch(() => {});
   ping();
   const timer = setInterval(ping, 2000);
-  // pagehide includes refreshes; the backend waits for the next heartbeat
-  // before treating this as a genuine window/tab close.
   window.addEventListener('pagehide', () => {
     clearInterval(timer);
     navigator.sendBeacon(endpoint + 'close', new Blob([body], {type: 'application/json'}));

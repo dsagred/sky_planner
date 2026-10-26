@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pandas as pd
 
-BASE_COLUMNS = ["id", "name", "ra", "dec", "gmag", "moon", "airmass", "phase", "radial_velocity", "exposure_time", "exposures", "delay", "comments", "moon_velocity_limit", "telluric_velocity_limit"]
+BASE_COLUMNS = ["id", "name", "ra", "dec", "gmag", "moon", "airmass", "phase", "radial_velocity", "exposure_time", "exposures", "delay", "comments", "moon_velocity_limit", "moon_velocity_altitude", "telluric_velocity_limit"]
 PLAN_COLUMNS = BASE_COLUMNS + ["project", "source_id"]
-PLOT_COLUMNS = ["add", "name", "ra", "dec", "moon", "airmass", "phase", "radial_velocity", "moon_velocity_limit", "telluric_velocity_limit"]   # layout expected by obs
+PLOT_COLUMNS = ["add", "name", "ra", "dec", "moon", "airmass", "phase", "radial_velocity", "moon_velocity_limit", "moon_velocity_altitude", "telluric_velocity_limit"]   # layout expected by obs
 DEFAULT_MOON = 30.0         # deg
 DEFAULT_AIRMASS = 1.6
 DEFAULT_PHASE = "bright"
@@ -47,6 +47,7 @@ ALIASES = {
     "delay": {'delay_seconds', 'delay'},
     "comments": {'notes', 'comments', 'comment'},
     "moon_velocity_limit": {'moon_rv_limit', 'moon_velocity_limit'},
+    "moon_velocity_altitude": {"moon_velocity_altitude", "moon_rv_altitude"},
     "telluric_velocity_limit": {'telluric_velocity_limit', 'telluric_rv_limit'},
 }
 NAME_RE = re.compile(r"^[A-Za-z0-9_\- ]{1,60}$")
@@ -161,6 +162,8 @@ def clean_target(d, require_all=True, defaults=None):
         if require_all or key in d:
             value = d.get(key)
             out[key] = defaults.get(key) if require_all and key not in d else (None if value is None or str(value).strip().lower() in ("", "none", "nan") else _num(value, None, 0, 1e9, label))
+    if require_all or "moon_velocity_altitude" in d:
+        out["moon_velocity_altitude"] = _num(d.get("moon_velocity_altitude"), defaults.get("moon_velocity_altitude", 3), -1e9, 1e9, "Moon velocity altitude")
     for key, default, label in (("exposure_time", DEFAULT_EXPOSURE_TIME, "Exposure time"),
                                 ("exposures", DEFAULT_EXPOSURES, "Number of exposures"),
                                 ("delay", DEFAULT_DELAY, "Delay")):
@@ -197,7 +200,7 @@ def parse_csv(text, defaults=None):
         if df.shape[1] == 6:
             df.columns = ["add", "name", "ra", "dec", "moon", "airmass"]
         elif df.shape[1] == 7:
-            df.columns = ["add", "name", "ra", "dec", "moon", "airmass", "phase", "radial_velocity", "exposure_time", "exposures", "delay", "comments", "moon_velocity_limit", "telluric_velocity_limit"]
+            df.columns = ["add", "name", "ra", "dec", "moon", "airmass", "phase"]
         elif df.shape[1] == 3:
             df.columns = ["name", "ra", "dec"]
         else:
@@ -221,7 +224,7 @@ def parse_csv(text, defaults=None):
 class Table:
     """A table of stars, persisted as csv after every change."""
     columns = BASE_COLUMNS
-    dtypes = {"id": int, "name": str, "ra": str, "dec": str, "gmag": float, "moon": float, "airmass": float, "phase": str, "radial_velocity": float, "exposure_time": float, "exposures": int, "delay": float, "comments": str, "moon_velocity_limit": float, "telluric_velocity_limit": float}
+    dtypes = {"id": int, "name": str, "ra": str, "dec": str, "gmag": float, "moon": float, "airmass": float, "phase": str, "radial_velocity": float, "exposure_time": float, "exposures": int, "delay": float, "comments": str, "moon_velocity_limit": float, "telluric_velocity_limit": float, "moon_velocity_altitude": float}
 
     def __init__(self, name, folder):
         self.name, self.path, self.lock = name, Path(folder) / f"{name}.csv", threading.RLock()
@@ -232,7 +235,7 @@ class Table:
     def _load(self):
         df = pd.read_csv(self.path, dtype=str) if self.path.exists() else pd.DataFrame()
         df = df.reindex(columns=self.columns)
-        fill = {"gmag": float("nan"), "moon": DEFAULT_MOON, "airmass": DEFAULT_AIRMASS, "phase": DEFAULT_PHASE, "project": "", "source_id": 0, "radial_velocity": float("nan"), "exposure_time": DEFAULT_EXPOSURE_TIME, "exposures": DEFAULT_EXPOSURES, "delay": DEFAULT_DELAY, "comments": "", "moon_velocity_limit": float("nan"), "telluric_velocity_limit": float("nan")}
+        fill = {"gmag": float("nan"), "moon": DEFAULT_MOON, "airmass": DEFAULT_AIRMASS, "phase": DEFAULT_PHASE, "project": "", "source_id": 0, "radial_velocity": float("nan"), "exposure_time": DEFAULT_EXPOSURE_TIME, "exposures": DEFAULT_EXPOSURES, "delay": DEFAULT_DELAY, "comments": "", "moon_velocity_limit": float("nan"), "telluric_velocity_limit": float("nan"), "moon_velocity_altitude": 3.0}
         for key in ("exposure_time", "exposures", "delay"):
             if key in df:
                 df[key] = df[key].replace(r"(?i)^\s*(?:none|null|nan)?\s*$", pd.NA, regex=True)
@@ -248,7 +251,7 @@ class Table:
     def records(self):
         out = self.df.to_dict("records")
         for r in out:
-            for key in ("gmag", "radial_velocity", "moon_velocity_limit", "telluric_velocity_limit"):
+            for key in ("gmag", "radial_velocity", "moon_velocity_limit", "moon_velocity_altitude", "telluric_velocity_limit"):
                 r[key] = None if pd.isna(r[key]) or str(r[key]).strip().lower() in ("", "none") else float(r[key])
             r["ra_disp"], r["dec_disp"] = format_ra(r["ra"]), format_dec(r["dec"])
         return out
@@ -336,7 +339,7 @@ class Project(Table):
 
     def __init__(self, name, folder):
         self.meta = Path(folder) / f"{name}.json"
-        self.settings = {"moon": DEFAULT_MOON, "airmass": DEFAULT_AIRMASS, "phase": DEFAULT_PHASE, "moon_velocity_limit": None, "telluric_velocity_limit": None}
+        self.settings = {"moon": DEFAULT_MOON, "airmass": DEFAULT_AIRMASS, "phase": DEFAULT_PHASE, "moon_velocity_limit": None, "telluric_velocity_limit": None, "moon_velocity_altitude": 3.0}
         if self.meta.exists():
             self.settings.update(json.loads(self.meta.read_text()))
         super().__init__(name, folder)
@@ -369,10 +372,12 @@ class Project(Table):
                 if key in d:
                     value = d[key]
                     self.settings[key] = None if value is None or str(value).strip().lower() in ("", "none", "nan") else _num(value, None, 0, 1e9, label)
+            if "moon_velocity_altitude" in d:
+                self.settings["moon_velocity_altitude"] = _num(d["moon_velocity_altitude"], 3, -1e9, 1e9, "Moon velocity altitude")
             if apply:
                 self.df["moon"], self.df["airmass"] = self.settings["moon"], self.settings["airmass"]
                 self.df["phase"] = self.settings["phase"]
-                for key in ("moon_velocity_limit", "telluric_velocity_limit"):
+                for key in ("moon_velocity_limit", "moon_velocity_altitude", "telluric_velocity_limit"):
                     self.df[key] = self.settings[key]
             self.save()
 
@@ -488,7 +493,7 @@ class Plan(Table):
                 if hit.empty:
                     continue
                 r = hit.iloc[0]
-                rows.append(dict(name=r["name"], ra=r["ra"], dec=r["dec"], gmag=r["gmag"], moon=r["moon"], airmass=r["airmass"], phase=r["phase"], radial_velocity=r["radial_velocity"], exposure_time=self.settings["exposure_time"], exposures=r["exposures"], delay=self.settings["delay"], comments=r["comments"], moon_velocity_limit=r["moon_velocity_limit"], telluric_velocity_limit=r["telluric_velocity_limit"],
+                rows.append(dict(name=r["name"], ra=r["ra"], dec=r["dec"], gmag=r["gmag"], moon=r["moon"], airmass=r["airmass"], phase=r["phase"], radial_velocity=r["radial_velocity"], exposure_time=self.settings["exposure_time"], exposures=r["exposures"], delay=self.settings["delay"], comments=r["comments"], moon_velocity_limit=r["moon_velocity_limit"], telluric_velocity_limit=r["telluric_velocity_limit"], moon_velocity_altitude=r["moon_velocity_altitude"],
                                  project=proj.name, source_id=int(r["id"])))
             if rows:
                 self.add_many(pd.DataFrame(rows))
@@ -506,7 +511,7 @@ class Plan(Table):
 
     def plot_frame(self):
         """The plan in the layout obs expects (all stars selected)."""
-        df = self.df[["name", "ra", "dec", "moon", "airmass", "phase", "radial_velocity", "moon_velocity_limit", "telluric_velocity_limit"]].copy()
+        df = self.df[["name", "ra", "dec", "moon", "airmass", "phase", "radial_velocity", "moon_velocity_limit", "moon_velocity_altitude", "telluric_velocity_limit"]].copy()
         df.insert(0, "add", 1)
         return df[PLOT_COLUMNS].reset_index(drop=True)
 

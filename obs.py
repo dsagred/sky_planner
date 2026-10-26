@@ -106,7 +106,7 @@ def _target_velocities(coords, obs_v, moon_rv):
     return berv, moon_rv[None, :] + berv
 
 
-def _velocity_masks(sel, berv, moon_apparent):
+def _velocity_masks(sel, berv, moon_apparent, moon_altitude=None):
     """Return Moon/telluric collision masks plus differences for targets without RV as NaN."""
     n, m = berv.shape
     moon_diff = np.full((n, m), np.nan)
@@ -122,7 +122,9 @@ def _velocity_masks(sel, berv, moon_apparent):
         ml = _optional_number(r, 'moon_velocity_limit')
         tl = _optional_number(r, 'telluric_velocity_limit')
         if ml is not None:
-            blocked_moon[i] = moon_diff[i] < ml
+            threshold = _optional_number(r, 'moon_velocity_altitude')
+            threshold = 3.0 if threshold is None else threshold
+            blocked_moon[i] = (moon_diff[i] < ml) & (True if moon_altitude is None else np.asarray(moon_altitude) >= threshold)
         if tl is not None:
             blocked_tel[i] = tel_diff[i] < tl
     return moon_diff, tel_diff, blocked_moon, blocked_tel
@@ -543,7 +545,12 @@ def _year_hours(targetlist, year, location, sun_altitude=-12, return_violations=
                                   for component in obs_v])
             sample_moon_rv = np.interp(yr.sample_jd, jd_grid, moon_rv)
             berv, lunar = _target_velocities(coords, sample_v, sample_moon_rv)
-            _, _, blocked_moon, blocked_tel = _velocity_masks(sel, berv, lunar)
+            # Approximate lunar apparent altitude from its equatorial unit vector
+            # and local sidereal direction at the integration samples.
+            moon_sin_alt = (np.sin(yr.lat) * yr.moon_vec[:, 2] +
+                            np.cos(yr.lat) * (yr.cos_lst * yr.moon_vec[:, 0] + yr.sin_lst * yr.moon_vec[:, 1]))
+            moon_alt = np.degrees(np.arcsin(np.clip(moon_sin_alt, -1, 1)))
+            _, _, blocked_moon, blocked_tel = _velocity_masks(sel, berv, lunar, moon_alt)
             vel_ok = ~(blocked_moon | blocked_tel)
             velocity_blocked = (blocked_moon, blocked_tel)
         result = _visible_hours(yr, eq.ra.rad, eq.dec.rad, coords.ra.rad, coords.dec.rad,
@@ -747,7 +754,7 @@ def night_data(targetlist=None, date=None, location='lasilla'):
             airmass = 1 / np.sin(np.radians(shown))
         obs_v, moon_rv = _velocity_vectors(night.location, night.times)
         berv, moon_apparent = _target_velocities(_coords(sel), obs_v, moon_rv)
-        moon_diff, tel_diff, blocked_moon, blocked_tel = _velocity_masks(sel, berv, moon_apparent)
+        moon_diff, tel_diff, blocked_moon, blocked_tel = _velocity_masks(sel, berv, moon_apparent, night.moon_alt)
         for i, row in sel.iterrows():
             targets.append(dict(name=str(row['name']), moon_limit=float(row['moon']), airmass_limit=float(row['airmass']),
                                 phase=str(row.get('phase', 'bright')), phase_limit=PHASE_LIMITS.get(str(row.get('phase', 'bright')), 1.0) * 100,
@@ -756,6 +763,7 @@ def night_data(targetlist=None, date=None, location='lasilla'):
                                 moon_velocity_difference=_nums(moon_diff[i], 3),
                                 telluric_velocity_difference=_nums(tel_diff[i], 3),
                                 moon_velocity_limit=_optional_number(row, 'moon_velocity_limit'),
+                                moon_velocity_altitude=3.0 if _optional_number(row, 'moon_velocity_altitude') is None else _optional_number(row, 'moon_velocity_altitude'),
                                 telluric_velocity_limit=_optional_number(row, 'telluric_velocity_limit'),
                                 radial_velocity=_optional_number(row, 'radial_velocity'),
                                 blocked_moon_velocity=blocked_moon[i].tolist(),
@@ -803,7 +811,7 @@ def night_data(targetlist=None, date=None, location='lasilla'):
             schedule_events[code] = _stamp(Time(crossings[0], format='jd').datetime)
     night_help = '\n'.join(help_lines) if help_lines else 'No solar horizon crossings during this night.' 
     return dict(schedule_events=schedule_events, moon_phase=_nums(night.moon_phase * 100, 1), kind='night', location=location, date=str(night.dt[0].date()), title=_title_plain(night), night_help=night_help,
-                t=[_stamp(d) for d in night.dt], moon_alt=_nums(np.where(night.moon_alt >= 0, night.moon_alt, np.nan), 2),
+                t=[_stamp(d) for d in night.dt], moon_alt=_nums(night.moon_alt, 2),
                 twilight=[dict(x0=_stamp(a), x1=_stamp(b), alpha=float(al))
                           for a, b, al in zip(night.bounds[:-1], night.bounds[1:], night.shade) if al > 0],
                 lst_t=[_stamp(d) for d in ticks], lst=lst, targets=targets)
@@ -819,7 +827,7 @@ def year_data(targetlist=None, year=None, location='lasilla', sun_altitude=-12):
     counts = []
     if selected is not None and len(selected):
         columns = ['name', 'ra', 'dec', 'moon', 'airmass', 'phase',
-                   'radial_velocity', 'moon_velocity_limit', 'telluric_velocity_limit']
+                   'radial_velocity', 'moon_velocity_limit', 'moon_velocity_altitude', 'telluric_velocity_limit']
         columns = [col for col in columns if col in selected.columns]
         keys = selected[columns].copy()
         # Stable, linear-time deduplication; NaN/None count as the same blank.

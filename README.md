@@ -16,7 +16,7 @@ Sky Planner uses Python, Flask and Astropy. A Conda environment is convenient, b
 
 ### Install the Python dependencies
 
-If you use Conda, activate its `base` environment to install the dependencies (both desktop launchers prefer Conda `base` when Conda is available):
+If you use Conda, activate the environment where you want Sky Planner installed (the supplied GNOME launcher uses `base` by default):
 
 ```bash
 conda activate base
@@ -40,31 +40,9 @@ chmod +x launch_sky_planner.sh install_desktop_launcher.sh
 ./install_desktop_launcher.sh
 ```
 
-Find **Sky Observation Planner** in the GNOME application menu or on the desktop (if desktop icons are enabled). The launcher first activates Conda `base` if installed; otherwise it tries a project `.venv`/`venv` and then a Python 3.10+ installation with all dependencies. It starts the local web server and opens your system's default browser. GNOME may ask you to select **Allow Launching** for the desktop icon. If you move the application folder later, run the installer again so its paths are updated.
+Find **Sky Observation Planner** in the GNOME application menu or on the desktop (if desktop icons are enabled). The launcher activates Conda `base`, starts the local web server and opens your system's default browser. GNOME may ask you to select **Allow Launching** for the desktop icon. If you move the application folder later, run the installer again so its paths are updated.
 
-A browser refresh preserves the server session; closing the tracked tab/window normally stops the server after a 2-second grace period (90-second timeout if no close event arrives). Quickly reopening the launcher reconnects the existing tracked session and cancels a pending close. Shutdown detection is best effort. No separate Stop shortcut is installed.
-
-**Without Conda (Linux or macOS):** From the extracted project directory, run:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-```
-
-The desktop launchers use the existing Conda activation method if Conda is available. Only if Conda is **not found** do they check `.venv`, `venv`, and then `python3`/`python` for Python 3.10+ and all required packages. If Conda is found but its `base` activation fails, the launcher reports that error rather than silently using a different interpreter. The launchers do not install dependencies automatically.
-
-### Install the macOS Finder launcher (Apple Silicon or Intel Mac)
-
-Install the dependencies either in Conda `base` (for example with [Miniforge](https://github.com/conda-forge/miniforge)) or in a project virtual environment with `python3 -m venv .venv` followed by `.venv/bin/python -m pip install -r requirements.txt`. Conda is **not required**. Keep the extracted Sky Planner folder in a permanent location. From Terminal, **inside the Sky Planner folder**, run:
-
-```bash
-chmod +x launch_sky_planner_mac.sh install_mac_launcher.sh
-./install_mac_launcher.sh
-```
-
-This creates **~/Applications/Sky Observation Planner.app**. Open it from Finder (or macOS app search when indexed); it prefers Conda `base` when available, otherwise uses a project `.venv`/`venv` or suitable system Python; it starts Waitress and opens your **default browser**. No PyInstaller compilation or administrator privileges are required. The `.app` is a small launcher referencing the extracted project folder; rerun the installer after moving that folder. If macOS blocks a downloaded app, use Finder's **Open** context menu or review **System Settings → Privacy & Security**; run only code you trust.
-
-The macOS server log is **~/Library/Logs/SkyPlanner/server.log**. The launcher supports `SKY_PLANNER_HOST` (default `127.0.0.1`) and `SKY_PLANNER_PORT` (default `5511`) when invoked from Terminal. For a browser reload, the server remains alive and accepts a reconnect; closing the session tab or browser window sends a close signal, and the server normally exits after a **2-second** reconnection grace period. If the close signal is lost, the **90-second** heartbeat timeout handles shutdown. Quickly reopening the launcher reconnects the existing tracked session and cancels a pending close. Browser shutdown detection is best effort; a second browser tab that does not carry the session token does not keep the owned server alive.
+Closing the browser tab may not immediately stop the server on every browser; shutdown detection is best effort. No separate Stop shortcut is installed.
 
 ## Author and licence
 
@@ -184,3 +162,7 @@ year = obs.annual(targets, location='paranal', year=2027)
 `annual()` returns `dates` (NumPy `datetime64[D]`, site-local *calendar dates*), `time_utc` (NumPy `datetime64[ns]` for the sampled **local mean solar midnight** at the site's longitude) and `targets` (name → metric arrays). Metrics are `observable_hours` (whole-night integral), `moon_distance`, `barycentric_velocity`, `moon_velocity`, `moon_velocity_difference` and `telluric_velocity_difference`. Angular distances are degrees; velocities km/s. Local mean midnight uses longitude, not the civil time zone. The annual visibility hours belong to the night associated with that calendar date and are not an instantaneous measurement.
 
 All API outputs are intended for NumPy analysis, not directly JSON-serializable. The web application continues to use its existing independent JSON plotting interfaces.
+
+### Moon velocity altitude threshold (v0.611)
+
+The project default **Moon velocity altitude [deg]** is 3°; enter any finite number or choose −18°, −5°, 0°, 3°. The Moon velocity separation limit is applied only when the Moon altitude is at least this threshold, and only when target radial velocity and a Moon velocity limit are present. A threshold above the maximum lunar altitude disables the Moon velocity constraint; a threshold below its minimum applies it throughout. The setting is stored per target (including plans), inherited from project defaults on import/new targets, and may be applied to all existing project targets with the project defaults checkbox. Existing targets from older versions default to 3°.

@@ -85,7 +85,7 @@ def list_projects():
 @app.post("/api/projects")
 def create_project():
     d = body()
-    return jsonify(projects.create(d.get("name"), {"moon": d.get("moon"), "airmass": d.get("airmass"), "phase": d.get("phase"), "moon_velocity_limit": d.get("moon_velocity_limit"), "telluric_velocity_limit": d.get("telluric_velocity_limit")}).info()), 201
+    return jsonify(projects.create(d.get("name"), {"moon": d.get("moon"), "airmass": d.get("airmass"), "phase": d.get("phase"), "moon_velocity_limit": d.get("moon_velocity_limit"), "moon_velocity_altitude": d.get("moon_velocity_altitude", 3), "telluric_velocity_limit": d.get("telluric_velocity_limit")}).info()), 201
 
 
 @app.patch("/api/projects/<name>")
@@ -266,6 +266,7 @@ def download_plan(name):
                   'default_moon_distance_limit_deg': target['moon'],
                   'default_moon_phase': target['phase'],
                   'default_moon_velocity_limit_km_s': target.get('moon_velocity_limit'),
+                  'default_moon_velocity_altitude_deg': target.get('moon_velocity_altitude', 3),
                   'default_telluric_velocity_limit_km_s': target.get('telluric_velocity_limit'),
                   'default_target_radial_velocity_km_s': rv,
                   'project': target.get('project'),
@@ -517,12 +518,8 @@ def desktop_session(action):
     # Session path is created by the trusted launcher, never from a web request.
     if action == "ping":
         (state / "heartbeat").write_text(str(time.time()))
-        # A new page heartbeat cancels a pending close (e.g. after refresh).
-        (state / "closed").unlink(missing_ok=True)
     else:
-        # pagehide fires for refresh as well as real tab/window closure.
-        # Record the time; the launcher waits for a possible reconnect.
-        (state / "closed").write_text(str(time.time()))
+        (state / "closed").touch()
     return "", 204
 
 
