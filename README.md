@@ -71,7 +71,7 @@ The target editor includes maximum **airmass**, maximum **Moon illumination** (`
 
 The editor also stores **exposure time** (seconds), **number of exposures** (a positive integer), **delay** (minutes in the interface; seconds in stored data), and **comments** (up to 1,000 words). Exposure time and delay accept decimal numbers, including `2700.0`; number of exposures must represent a whole number.
 
-Project defaults include airmass, Moon phase, Moon distance and optional Moon/telluric velocity limits. These are used for new project targets and can be applied to existing project targets when requested.
+Project defaults include airmass, Moon phase, Moon distance and optional Moon/telluric velocity limits. These are used for new project targets and can be applied to existing project targets when requested. The Moon velocity limit is only applied, if the Moon is above the horizon. This is set by the project default **Moon velocity altitude [deg]** (default is 3°).
 
 ## 3. Sites
 
@@ -112,7 +112,6 @@ The first block normally starts at the selected twilight event, based on the cho
 A translucent time band identifies each scheduled block; target altitude curves are drawn above the bands. Scheduled segments stand out and the remaining portions are faded. Vertical lines mark block start/end. Hover **anywhere inside a block** to see that block's target data at the mouse's UTC time (including altitude, airmass, Moon distance and applicable velocities), exposure settings and overall block validity. Other targets' curves do not take over the schedule tooltip.
 
 A block is evaluated over its complete duration: a limit violated within the block marks it with a warning symbol (including in the legend). Changing the target order, adding targets or moving the start time causes the schedule to be evaluated again. The **yearly** plot continues to show unscheduled observable hours.
-
 
 ## CSV catalogue import reference
 
@@ -162,7 +161,3 @@ year = obs.annual(targets, location='paranal', year=2027)
 `annual()` returns `dates` (NumPy `datetime64[D]`, site-local *calendar dates*), `time_utc` (NumPy `datetime64[ns]` for the sampled **local mean solar midnight** at the site's longitude) and `targets` (name → metric arrays). Metrics are `observable_hours` (whole-night integral), `moon_distance`, `barycentric_velocity`, `moon_velocity`, `moon_velocity_difference` and `telluric_velocity_difference`. Angular distances are degrees; velocities km/s. Local mean midnight uses longitude, not the civil time zone. The annual visibility hours belong to the night associated with that calendar date and are not an instantaneous measurement.
 
 All API outputs are intended for NumPy analysis, not directly JSON-serializable. The web application continues to use its existing independent JSON plotting interfaces.
-
-### Moon velocity altitude threshold (v0.611)
-
-The project default **Moon velocity altitude [deg]** is 3°; enter any finite number or choose −18°, −5°, 0°, 3°. The Moon velocity separation limit is applied only when the Moon altitude is at least this threshold, and only when target radial velocity and a Moon velocity limit are present. A threshold above the maximum lunar altitude disables the Moon velocity constraint; a threshold below its minimum applies it throughout. The setting is stored per target (including plans), inherited from project defaults on import/new targets, and may be applied to all existing project targets with the project defaults checkbox. Existing targets from older versions default to 3°.
