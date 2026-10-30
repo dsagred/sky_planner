@@ -3,7 +3,9 @@ os.environ.setdefault("MPLBACKEND", "Agg")   # obs imports pyplot; never open a 
 
 import io
 import threading
+import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from flask import Flask, Response, jsonify, render_template, request, send_file, abort
 
@@ -19,6 +21,16 @@ COMPUTE_LOCK = threading.Lock()                            # one heavy astropy c
 
 FALLBACK_LOCATIONS = ["lasilla", "paranal", "greenwich", "ohp", "keck", "lapalma"]
 _locations = None
+
+# Keep the primary CDS service first, then try the documented mirrors if a
+# request times out or the service is otherwise unavailable. Each attempt has
+# an HTTP timeout and a separate limit on how long the caller waits.
+SIMBAD_SERVERS = (
+    "https://simbad.cds.unistra.fr/simbad/",
+    "https://simbad.harvard.edu/simbad/",
+)
+SIMBAD_TIMEOUT = 6
+SIMBAD_OPTIONAL_TIMEOUT = 3
 
 
 def locations():
@@ -398,10 +410,82 @@ def help_page():
     return render_template({"de": "help_de.html", "es": "help_es.html"}.get(request.args.get("lang", "en"), "help.html"))
 
 
+
 @app.get("/license")
 def license_page():
     from flask import Response
     return Response((BASE / "LICENSE").read_text(encoding="utf-8"), mimetype="text/plain")
+
+
+def _simbad_worker(result, Simbad, server, name, query_type, timeout):
+    """Run one Astroquery request in a daemon thread."""
+    try:
+        print(f"[SIMBAD worker] initializing for {server}", flush=True)
+        # An explicit constructor timeout fetches the default server's TAP
+        # capabilities before we can select a mirror. Use the offline default.
+        client = Simbad()
+        client.server = urlsplit(server).hostname
+        # The server setter validates against Astroquery's supported mirrors.
+        # Do not bypass it or mutate the global configuration on web threads.
+        request = client._session.request
+
+        def request_with_timeout(method, url, **kwargs):
+            kwargs["timeout"] = timeout
+            print(f"[SIMBAD HTTP] {method} {url} (timeout {timeout}s)", flush=True)
+            return request(method, url, **kwargs)
+
+        client._session.request = request_with_timeout
+        print(f"[SIMBAD worker] using TAP endpoint https://{client.server}/simbad/sim-tap", flush=True)
+
+        if query_type == "photometry":
+            try:
+                client.add_votable_fields("G")  # Gaia G; case-sensitive
+            except Exception:
+                client.add_votable_fields("flux(G)")  # older astroquery
+        elif query_type == "radial_velocity":
+            try:
+                client.add_votable_fields("rvz_radvel")
+            except Exception:
+                client.add_votable_fields("rv_value")
+
+        result["value"] = client.query_object(name)
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {exc}"
+
+
+def query_simbad(Simbad, name, query_type="coordinates", servers=None, timeout=SIMBAD_TIMEOUT, label="query"):
+    """Query mirrors with a bounded wait (timed-out threads may still finish)."""
+    last_error = None
+    for server in servers or SIMBAD_SERVERS:
+        started = time.monotonic()
+        print(f"[SIMBAD] {label}: waiting for server {server} (timeout {timeout}s)", flush=True)
+        result = {}
+        worker = threading.Thread(
+            target=_simbad_worker,
+            args=(result, Simbad, server, name, query_type, timeout),
+            daemon=True,
+        )
+        try:
+            worker.start()
+            print(f"[SIMBAD] {label}: request started via {server}", flush=True)
+            worker.join(timeout)
+            if worker.is_alive():
+                raise TimeoutError(f"wait deadline exceeded after {timeout}s; request may still be finishing")
+            if "error" in result:
+                raise RuntimeError(result["error"])
+            if "value" not in result:
+                raise RuntimeError("SIMBAD worker returned no result")
+            payload = result["value"]
+            elapsed = time.monotonic() - started
+            print(f"[SIMBAD] {label}: server succeeded via {server} after {elapsed:.1f}s", flush=True)
+            return payload, server
+        except Exception as exc:
+            last_error = exc
+            elapsed = time.monotonic() - started
+            print(f"[SIMBAD] {label}: server failed via {server} after {elapsed:.1f}s: {exc!r}", flush=True)
+            app.logger.warning("SIMBAD query failed via %s: %s", server, exc)
+    raise last_error or RuntimeError("No SIMBAD server is configured")
+
 
 @app.get("/api/simbad")
 def simbad_lookup():
@@ -414,8 +498,8 @@ def simbad_lookup():
         from astropy.coordinates import Angle
         # Resolve the identifier FIRST, with SIMBAD's default columns.
         # A missing Gaia G value must never turn a valid object into "not found".
-        resolver = Simbad()
-        table = resolver.query_object(name)
+        print(f"[SIMBAD] lookup requested for {name!r}", flush=True)
+        table, simbad_server = query_simbad(Simbad, name, label="coordinates")
         if table is None or len(table) == 0:
             raise ValidationError("SIMBAD did not find this identifier")
         row = table[0]
@@ -436,14 +520,12 @@ def simbad_lookup():
         try:
             import math
             import warnings
-            phot = Simbad()
-            try:
-                phot.add_votable_fields("G")  # Gaia G; case-sensitive
-            except Exception:
-                phot.add_votable_fields("flux(G)")  # older astroquery
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message=".*no data corresponding.*")
-                phot_table = phot.query_object(name)
+                phot_table, _ = query_simbad(
+                    Simbad, name, query_type="photometry",
+                    servers=(simbad_server,), timeout=SIMBAD_OPTIONAL_TIMEOUT,
+                    label="Gaia G")
             if phot_table is not None and len(phot_table):
                 for column in phot_table.colnames:
                     if column.lower() in ("g", "flux_g", "flux(g)", "gmag", "g_mag"):
@@ -462,12 +544,10 @@ def simbad_lookup():
         # exposes SIMBAD's 'rvz_radvel'; older releases use 'rv_value'.
         radial_velocity = None
         try:
-            rv_query = Simbad()
-            try:
-                rv_query.add_votable_fields("rvz_radvel")
-            except Exception:
-                rv_query.add_votable_fields("rv_value")
-            rv_table = rv_query.query_object(name)
+            rv_table, _ = query_simbad(
+                Simbad, name, query_type="radial_velocity",
+                servers=(simbad_server,), timeout=SIMBAD_OPTIONAL_TIMEOUT,
+                label="radial velocity")
             if rv_table is not None and len(rv_table):
                 import math
                 for col in rv_table.colnames:

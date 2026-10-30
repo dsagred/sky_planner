@@ -1378,12 +1378,6 @@ function renderYear(d, th) {
       '<br>%{customdata[4]}<extra></extra>';
     traces.push({x: d.dates, y: tg.hours, name: displayName, mode: 'lines',
       line: {color, width: 2.5}, customdata: cd, hoverlabel, hovertemplate, skyTargetIndex:i});
-    // Subdued crosses mark dates on which at least one limit is violated.
-    // Keep the full curve showing the resulting observable hours.
-    const bad = (tg.violations || []).map(v => !!v);
-    if (bad.some(Boolean)) traces.push({x: d.dates, y: tg.hours.map((v,k) => bad[k] ? v : null),
-      name: displayName, legendgroup: tg.name + i, showlegend: false, mode: 'markers',
-      marker: {symbol: 'x', size: 5, color, opacity: 0.45}, customdata: cd, hoverlabel, hovertemplate, skyTargetIndex:i});
   });
   draw(traces, {
     ...common(th, d.title, {l: 48, r: 175, t: 65, b: 65}),
