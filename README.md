@@ -1,8 +1,12 @@
 # Sky Observation Planner
 
+**Version 0.7 — 3 November 2026.**
+
+*Maintenance corrections: 4 November 2026 (translations, plotting layout, launcher-session reliability).*
+
 **Plan your observing night, explore target visibility, and turn a list of astronomical objects into a practical observing schedule.**
 
-Sky Observation Planner is designed to make astronomical observation planning quick and intuitive. Explore when your targets are visible from your preferred observatory with an interactive **nightly altitude plot**, or look ahead through the seasons with an **annual visibility plot**. Set your observing limits, compare the Moon's position and other observing conditions, and find suitable windows for your targets before heading to the telescope.
+Sky Observation Planner is designed to make astronomical observation planning quick and intuitive. Explore when your targets are visible from your preferred observatory with an interactive **nightly altitude or All-Sky/Fisheye plot**, or look ahead through the seasons with an **annual visibility plot**. Set your observing limits, compare the Moon's position and other observing conditions, and find suitable windows for your targets before heading to the telescope.
 
 Start with your own CSV target catalogue, use the included Messier catalogue as an example, or look up objects directly in **SIMBAD** to build a personal target list. You can then select targets, arrange them into an observing plan, and create a timed schedule for the night. The application runs locally on your computer and opens in your web browser; its interactive plots support zooming, hovering and exporting images.
 
@@ -42,7 +46,7 @@ chmod +x launch_sky_planner.sh install_desktop_launcher.sh
 
 Find **Sky Observation Planner** in the GNOME application menu or on the desktop (if desktop icons are enabled). The launcher first activates Conda `base` if installed; otherwise it tries a project `.venv`/`venv` and then a Python 3.10+ installation with all dependencies. It starts the local web server and opens your system's default browser. GNOME may ask you to select **Allow Launching** for the desktop icon. If you move the application folder later, run the installer again so its paths are updated.
 
-A browser refresh preserves the server session; closing the tracked tab/window normally stops the server after a 2-second grace period (90-second timeout if no close event arrives). Quickly reopening the launcher reconnects the existing tracked session and cancels a pending close. Shutdown detection is best effort. No separate Stop shortcut is installed.
+A browser refresh preserves the server session; closing the tracked tab/window normally stops the server after a **12-second reconnection grace period**. **Missed heartbeats alone no longer stop the server**: inactive browser tabs and suspended laptops may pause heartbeats without closing the application. If the browser crashes or fails to send its close notification, the server may remain running until manually stopped. Quickly reopening the launcher reconnects the existing tracked session and cancels a pending close. Shutdown detection is best effort. No separate Stop shortcut is installed.
 
 **Without Conda (Linux or macOS):** From the extracted project directory, run:
 
@@ -50,6 +54,8 @@ A browser refresh preserves the server session; closing the tracked tab/window n
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
+
+The launcher installation commands are unchanged from v0.61. **Keep `desktop_session.py` in the same folder as `app.py` and both `launch_sky_planner*.sh` scripts**: both launchers now call that shared helper to decide when their server session should close. If updating only selected files from a previous installation, include this new helper. No reinstall is required when replacing the application files in their original folder.
 
 The desktop launchers use the existing Conda activation method if Conda is available. Only if Conda is **not found** do they check `.venv`, `venv`, and then `python3`/`python` for Python 3.10+ and all required packages. If Conda is found but its `base` activation fails, the launcher reports that error rather than silently using a different interpreter. The launchers do not install dependencies automatically.
 
@@ -64,7 +70,7 @@ chmod +x launch_sky_planner_mac.sh install_mac_launcher.sh
 
 This creates **~/Applications/Sky Observation Planner.app**. Open it from Finder (or macOS app search when indexed); it prefers Conda `base` when available, otherwise uses a project `.venv`/`venv` or suitable system Python; it starts Waitress and opens your **default browser**. No PyInstaller compilation or administrator privileges are required. The `.app` is a small launcher referencing the extracted project folder; rerun the installer after moving that folder. If macOS blocks a downloaded app, use Finder's **Open** context menu or review **System Settings → Privacy & Security**; run only code you trust.
 
-The macOS server log is **~/Library/Logs/SkyPlanner/server.log**. The launcher supports `SKY_PLANNER_HOST` (default `127.0.0.1`) and `SKY_PLANNER_PORT` (default `5511`) when invoked from Terminal. For a browser reload, the server remains alive and accepts a reconnect; closing the session tab or browser window sends a close signal, and the server normally exits after a **2-second** reconnection grace period. If the close signal is lost, the **90-second** heartbeat timeout handles shutdown. Quickly reopening the launcher reconnects the existing tracked session and cancels a pending close. Browser shutdown detection is best effort; a second browser tab that does not carry the session token does not keep the owned server alive.
+The macOS server log is **~/Library/Logs/SkyPlanner/server.log**. The launcher supports `SKY_PLANNER_HOST` (default `127.0.0.1`) and `SKY_PLANNER_PORT` (default `5511`) when invoked from Terminal. For a browser reload, the server remains alive and accepts a reconnect; closing the session tab or browser window sends a close signal, and the server normally exits after a **12-second** reconnection grace period. Missing heartbeats never shut down the server on their own: this prevents spurious shutdown while the browser is backgrounded or the computer is sleeping. If a close beacon is lost (for example, after a browser crash), manually stop the launcher-owned server if necessary. Quickly reopening the launcher reconnects the existing tracked session and cancels a pending close. Browser shutdown detection is best effort; a second browser tab that does not carry the session token does not keep the owned server alive.
 
 ## Author and licence
 
@@ -103,17 +109,29 @@ Simply start typing your preferred site and use the autofill to complete them. S
 
 ## 4. Plotting
 
-Choose the date and observing **Location**, then select either plot mode. Click **Update** to calculate; the button displays an animated **Calculating** state while processing. Plotly allows zooming, panning, legend interaction and image export. The plot color theme is independent of the surrounding website, which follows the operating system's light/dark appearance. Drag the divider to resize the catalogues and plot.
+Choose the date and observing **Location**. Click the main **One night: Altitude/Fisheye** button to immediately compute that night view, even after using the yearly plot. Use the **separate ▾ arrow** to choose **Altitude** (time/altitude chart) or **Fisheye** (zenithal All-Sky chart) at any time. Click **Visible hours · whole year** for the yearly view. The night projection choice is remembered in this browser. Click **Update** to recompute with current values; the button displays an animated **Calculating** state while processing. Plotly allows zooming, panning, legend interaction and image export. The plot color theme is independent of the surrounding website, which follows the operating system's light/dark appearance. Drag the divider to resize the catalogues and plot.
 
-### Altitude · one night
+### One night → Altitude
 
 This plot shows each target's altitude throughout the night, the Moon's altitude, twilight shading, UTC time, local sidereal time and an airmass axis. The title lists the calculated solar events; hover over it for explanations. Target hover information reports altitude, airmass, Moon separation and relevant velocity values. Low-visibility intervals are subdued or crossed; warning symbols mark targets/blocks that fail constraints. A target that stays below the horizon is **not** observable.
+
+### One night → Fisheye (All-Sky)
+
+![Sky Observation Planner v0.7 — One night Fisheye view with observing schedule and live wind overlay](docs/images/fisheye_plot.png)
+
+The Fisheye view uses a **zenithal equidistant projection** of the same night: the default outer circle is **altitude 20°**, the zenith is at the center (**90°**), and the inner rings mark 30° and 60° (when above the selected limit). Faint dotted **north–south (meridian)** and **east–west** guide lines cross at the zenith, matching the altitude-ring style. **North** is up, **East** is left, South down and West right. Each target and the Moon trace their positions across the selected night; positions below the configured minimum altitude are not drawn. This minimum is a **display filter only**: it does not change astronomy calculations or scheduled-block validity. The projected tracks use the same colours, warnings, faded airmass-limit segments and Moon/phase/velocity checks as the altitude plot.
+
+In **☰ Settings**, **Fisheye plot - horizon limit [°]** accepts decimal values from 0 to below 90° (default 20°). The view scales the chosen altitude to its outer ring, hiding lower-altitude tracks and ribbons. The circle uses the available plot area and is reduced only when the arrow or wind speed label would otherwise extend beyond the normal plot boundaries. **Fisheye plot - toggle Wind info** (off by default) adds a broad blue arrow just outside the circle at the *FROM* azimuth of the current 10-metre wind at the selected observatory, pointing inward in the direction the air travels. The speed in m/s is a clickable link to [Open-Meteo](https://open-meteo.com/en/docs); attribution is shown right beside the data. Wind data are current weather-model conditions, **not** predictions for the date selected in the planner, and may differ from measurements at the telescope. Wind requests need internet access; they are cached for 10 minutes and failures leave plotting unaffected. Open-Meteo data are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the public service is intended for non-commercial use. Both preferences are remembered in the browser.
+
+Hover over a track or marker to see the corresponding **UTC time, altitude, azimuth, airmass, Moon separation and velocity/limit information**; click a target track to highlight and scroll to that target in the plan. Legend interactions, zooming, panning, automatic view reset, screenshot export, theme selection and the title's twilight-event tooltip are retained. Changing the plan or observing site/date updates either night projection.
+
+The translucent **twilight regions are projected along each target's trajectory**, rather than drawn as time-wide vertical rectangles. In **Schedule** mode the same block calculations and UTC start-time slider apply. A coloured ribbon marks the portion of each target's sky path occupied by its scheduled block; its bright centre line shows observing details and whole-block validity on hover, with a readable separator between current values and schedule information. Since azimuth and altitude do not uniquely encode time, an All-Sky view cannot show a full-width time band or provide the altitude plot's “hover anywhere in the time band” interaction. Instead, hover directly over a scheduled trajectory; for full-width time-band hover use the Altitude view.
 
 ### Visible hours · whole year
 
 ![Sky Observation Planner — yearly visibility plot](docs/images/yearly_visibility_plot.png)
 
-For every night in the selected year, this plot estimates how many hours each target meets the configured observing limits. Use **☰ Settings** to select the Sun-altitude boundary for the yearly observing window: **sunset (0°)**, **civil twilight (−6°)**, **nautical twilight (−12°, default)** or **astronomical twilight (−18°)**. The same limits (airmass, Moon phase/distance and configured velocity constraints) contribute to the visibility calculation. Violations are indicated on the yearly curves. Identical targets with matching coordinates and constraints are evaluated once and identified by a count.
+For every night in the selected year, this plot estimates how many hours each target meets the configured observing limits. The x-axis is labelled **Month**; all four plot sides carry axis borders/ticks. Plot titles, month abbreviations and hover text follow the selected GUI language. Use **☰ Settings** to select the Sun-altitude boundary for the yearly observing window: **sunset (0°)**, **civil twilight (−6°)**, **nautical twilight (−12°, default)** or **astronomical twilight (−18°)**. The same limits (airmass, Moon phase/distance and configured velocity constraints) contribute to the visibility calculation. Violations are indicated on the yearly curves. Identical targets with matching coordinates and constraints are evaluated once and identified by a count.
 
 The visibility calculation uses time sampling (approximately two minutes); velocity ephemerides are cached/interpolated to make repeated yearly plots faster. Treat the result as an observing-planning estimate, especially close to a limit threshold.
 
@@ -131,11 +149,11 @@ The schedule uses the plan's **target order**. Each target is an observing block
 
 `(exposure time + delay) × number of exposures`.
 
-The first block normally starts at the selected twilight event, based on the chosen date and observatory. Subsequent blocks follow in order. Move the time slider to shift the start. With the slider focused, press **Space**, or select **Time…**, to choose the current time, enter a UTC time or reset to the configured twilight.
+The first block normally starts at the selected twilight event, based on the chosen date and observatory. Subsequent blocks follow in order. Move the time slider to shift the start. With the slider focused, press **Space**, or select **Time…**, to choose the current time (UTC), enter a UTC time or reset to the configured twilight. Current time uses the UTC clock time regardless of the computer’s time zone, on the selected observing night (including after midnight). If that UTC time is outside the plotted night, a message is shown and the schedule is not changed.
 
-A translucent time band identifies each scheduled block; target altitude curves are drawn above the bands. Scheduled segments stand out and the remaining portions are faded. Vertical lines mark block start/end. Hover **anywhere inside a block** to see that block's target data at the mouse's UTC time (including altitude, airmass, Moon distance and applicable velocities), exposure settings and overall block validity. Other targets' curves do not take over the schedule tooltip.
+In the **Altitude** projection, a translucent time band identifies each scheduled block; target altitude curves are drawn above the bands. Scheduled segments stand out and the remaining portions are faded. Vertical lines mark block start/end. Hover **anywhere inside a block** to see that block's target data at the mouse's UTC time (including altitude, airmass, Moon distance and applicable velocities), exposure settings and overall block validity. Other targets' curves do not take over the schedule tooltip.
 
-A block is evaluated over its complete duration: a limit violated within the block marks it with a warning symbol (including in the legend). Changing the target order, adding targets or moving the start time causes the schedule to be evaluated again. The **yearly** plot continues to show unscheduled observable hours.
+A block is evaluated over its complete duration: a limit violated within the block marks it with a warning symbol (including in the legend). Changing the target order, adding targets or moving the start time causes the schedule to be evaluated again. The **Fisheye** projection shows the same blocks on the sky as coloured trajectory ribbons, and the **yearly** plot continues to show unscheduled observable hours.
 
 ## CSV catalogue import reference
 

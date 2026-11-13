@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from flask import Flask, Response, jsonify, render_template, request, send_file, abort
 
+from desktop_session import record_activity
 from sites import CUSTOM_SITES
 from store import PLOT_COLUMNS, Plan, Project, PlanStore, ProjectStore, ValidationError, parse_csv
 
@@ -82,6 +83,21 @@ def plotly_js():
 @app.get("/api/locations")
 def api_locations():
     return jsonify(locations())
+
+
+@app.get("/api/wind")
+def api_wind():
+    """Current model wind at the selected observatory (not the planned date)."""
+    name = request.args.get("location", "lasilla").strip()
+    try:
+        import obs
+        from wind_weather import current_wind
+        site = obs.get_location(name)
+        return jsonify(current_wind(float(site.lat.deg), float(site.lon.deg)))
+    except Exception as exc:
+        # Weather must remain optional: a network failure cannot break plotting.
+        app.logger.warning("Wind lookup for %s failed: %s", name, exc)
+        return jsonify(error="Wind data unavailable for this observatory."), 503
 
 
 def body():
@@ -573,7 +589,7 @@ def simbad_lookup():
 
 @app.get("/docs/images/<filename>")
 def manual_image(filename):
-    if filename not in ("altitude_plot.png", "yearly_visibility_plot.png"):
+    if filename not in ("altitude_plot.png", "yearly_visibility_plot.png", "fisheye_plot.png"):
         abort(404)
     return send_file(BASE / "docs" / "images" / filename)
 
@@ -585,7 +601,6 @@ APP_PORT = int(os.environ.get("SKY_PLANNER_PORT", "5511"))
 # The private token prevents unrelated tabs from controlling this session.
 @app.post("/api/desktop-session/<action>")
 def desktop_session(action):
-    import time
     import hmac
     token = os.environ.get("SKY_PLANNER_SESSION_TOKEN", "")
     folder = os.environ.get("SKY_PLANNER_SESSION_DIR", "")
@@ -594,12 +609,8 @@ def desktop_session(action):
     supplied = request.get_json(silent=True) or {}
     if not hmac.compare_digest(str(supplied.get("token", "")), token):
         abort(403)
-    state = Path(folder)
     # Session path is created by the trusted launcher, never from a web request.
-    if action == "ping":
-        (state / "heartbeat").write_text(str(time.time()))
-    else:
-        (state / "closed").touch()
+    record_activity(Path(folder), action, page_id=str(supplied.get("page_id", ""))[:128] or None)
     return "", 204
 
 

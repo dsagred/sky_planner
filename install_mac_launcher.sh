@@ -18,8 +18,8 @@ cat > "$DEST/Contents/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key><string>org.skyplanner.observation</string>
   <key>CFBundleExecutable</key><string>SkyPlanner</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleVersion</key><string>0.6.1</string>
-  <key>CFBundleShortVersionString</key><string>0.6.1</string>
+  <key>CFBundleVersion</key><string>0.7</string>
+  <key>CFBundleShortVersionString</key><string>0.7</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>LSUIElement</key><true/>
 </dict></plist>

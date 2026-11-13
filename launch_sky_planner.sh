@@ -13,9 +13,7 @@ PID_FILE="$LOG_DIR/server.pid"
 ACTIVE_SESSION_FILE="$LOG_DIR/active-session"
 mkdir -p "$LOG_DIR"
 APP_PID=""
-BROWSER_PROFILE=""
 SESSION_DIR=""
-BROWSER_PID=""
 
 error() {
   local message="$1"
@@ -41,7 +39,6 @@ cleanup() {
       if [[ "${active_pid:-}" == "$APP_PID" ]]; then rm -f "$ACTIVE_SESSION_FILE"; fi
     fi
   fi
-  [[ -z "$BROWSER_PROFILE" ]] || rm -rf -- "$BROWSER_PROFILE"
   [[ -z "$SESSION_DIR" ]] || rm -rf -- "$SESSION_DIR"
 }
 trap cleanup EXIT
@@ -175,10 +172,9 @@ fi
 
 # A browser pagehide event fires both on refresh and on actual tab closure.
 # Allow the reloaded page to reconnect before honoring a close notification.
-# A missing beacon still falls back to the heartbeat timeout.
-CLOSE_GRACE_SECONDS=2
+# A missed heartbeat alone never shuts down the server.
+CLOSE_GRACE_SECONDS=12
 seen=0
-missing_since=0
 for ((i=0; i<90; i++)); do
   if [[ -f "$SESSION_DIR/heartbeat" ]]; then seen=1; break; fi
   if ! kill -0 "$APP_PID" 2>/dev/null; then
@@ -194,18 +190,6 @@ while kill -0 "$APP_PID" 2>/dev/null; do
   # The close beacon alone is ambiguous: refresh also triggers pagehide.
   # A heartbeat from the reloaded page clears the pending close in app.py.
   # Keep a grace period for slow refreshes and browser startup.
-  last="$(cat "$SESSION_DIR/heartbeat" 2>/dev/null || echo 0)"
-  closed="$(cat "$SESSION_DIR/closed" 2>/dev/null || echo 0)"
-  if python - "$last" "$closed" "$CLOSE_GRACE_SECONDS" <<'PYSESSION'
-import sys, time
-last, closed, grace = map(float, sys.argv[1:])
-now = time.time()
-# Respect a close only after the reconnection grace period; if a heartbeat
-# arrived after the close request, it represents a still-open page.
-closed_expired = closed > 0 and now - closed >= grace and last <= closed
-heartbeat_expired = now - last > 90
-sys.exit(0 if closed_expired or heartbeat_expired else 1)
-PYSESSION
-  then break; fi
+  if python -m desktop_session "$SESSION_DIR" "$CLOSE_GRACE_SECONDS"; then break; fi
   sleep 0.25
 done

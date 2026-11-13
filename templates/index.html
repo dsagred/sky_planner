@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sky Observation Planner v0.61</title>
+<title>Sky Observation Planner v0.7</title>
 <style>
   :root { --bg:#14171c; --panel:#1d2229; --card:#262d36; --line:#38414d; --fg:#e4e8ee; --dim:#8b96a5; --acc:#4da3ff; --accfg:#06121f; --bad:#ff6b6b; --over:#4da3ff14; color-scheme:dark; }
   @media (prefers-color-scheme: light) { :root:not([data-site-theme=dark]) { --bg:#f3f5f8; --panel:#ffffff; --card:#eef1f5; --line:#cdd5df; --fg:#1b2430; --dim:#5f6c7d; --acc:#1a73e8; --accfg:#ffffff; --bad:#d93025; --over:#1a73e822; color-scheme:light; } }
@@ -19,7 +19,14 @@
   #resizeHandle:hover {background:var(--acc);}
   .filter-wrap {display:flex;gap:4px;align-items:center;} .filter-wrap input {flex:1; min-width:0;}
   .settings-wrap {position:relative;margin-left:auto;} #settingsMenu {position:absolute;top:calc(100% + 5px);right:0;z-index:20; min-width:250px; padding:10px; background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px #0007;}
-  #settingsMenu label {display:block;margin:8px 0 3px;} #settingsMenu select,#settingsMenu button {width:100%;}
+  #settingsMenu label {display:block;margin:8px 0 3px;} #settingsMenu select,#settingsMenu button,#settingsMenu input[type=number] {width:100%;}
+  #settingsMenu .check-setting {display:flex;gap:8px;align-items:center;margin:10px 0 8px;cursor:pointer;}
+  #settingsMenu .check-setting input {width:17px;height:17px;accent-color:var(--acc);}
+  #windSpeedLink {position:absolute;z-index:7;display:none;transform:translate(-50%,-50%);
+    padding:3px 5px;white-space:nowrap;font-size:12px;font-weight:700;
+    background:var(--panel);border-radius:5px;color:#338dff;text-decoration:underline;text-underline-offset:2px;}
+  #windSpeedLink:hover,#windSpeedLink:focus-visible {color:#75baff;outline:1px solid #338dff;}
+  #windStatus {position:absolute;left:10px;bottom:8px;z-index:5;font-size:11px;color:var(--dim);pointer-events:none;}
   main { flex:1; min-width:0; padding:12px; display:flex; flex-direction:column; gap:10px; }
   section.pane { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; }
   h2 { margin:0; font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); display:flex; justify-content:space-between; align-items:center; gap:6px; }
@@ -64,6 +71,17 @@
   .seg button { padding:10px 22px; font-size:15px; border-radius:0; margin-left:-1px; }
   .seg button:first-child { border-radius:7px 0 0 7px; margin-left:0; } .seg button:last-child { border-radius:0 7px 7px 0; }
   .seg button.active { background:var(--acc); color:var(--accfg); border-color:var(--acc); font-weight:600; position:relative; }
+  .night-view-wrap { position:relative; display:flex; }
+  .night-view-wrap > #nightBtn { border-radius:7px 0 0 7px; margin-left:0; padding-right:9px; }
+  .night-view-wrap > #nightArrow { border-radius:0; margin-left:-1px; padding:10px 11px; }
+  .night-view-wrap > #nightArrow.active { border-left-color:var(--acc); }
+  #yearBtn { border-radius:0 7px 7px 0; }
+  #nightViewMenu { position:absolute; top:calc(100% + 4px); left:0; z-index:25; min-width:190px;
+    border:1px solid var(--line); background:var(--panel); box-shadow:0 7px 22px #0008;
+    border-radius:6px; padding:5px; }
+  #nightViewMenu button { display:block; width:100%; text-align:left; border:0; background:transparent;
+    margin:0; padding:8px 10px; border-radius:4px; font-size:14px; }
+  #nightViewMenu button:hover, #nightViewMenu button[aria-checked=true] { background:var(--over); }
   #plotbox { flex:1; min-height:300px; position:relative; background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
   #plot { position:absolute; inset:0; }
   #plotBtn {position:relative;overflow:hidden;isolation:isolate;min-width:112px;width:112px;white-space:nowrap;flex-shrink:0}
@@ -127,8 +145,15 @@
 <main>
   <div class="row">
     <div class="seg" id="seg">
-      <button data-kind="night" class="active" title="Plot the altitude of the plan's stars during one night">Altitude · one night</button>
-      <button data-kind="year" title="Plot how many hours per night each star is observable during the whole year">Visible hours · whole year</button>
+      <div class="night-view-wrap">
+        <button id="nightBtn" class="active" title="Plot the selected one-night view">One night: <span id="nightViewName">Altitude</span></button>
+        <button id="nightArrow" class="active" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nightViewMenu" aria-label="Choose night plot projection" title="Choose Altitude or Fisheye">▾</button>
+        <div id="nightViewMenu" hidden role="group" aria-label="Night plot projection">
+          <button type="button" data-view="altitude" role="menuitemradio" aria-checked="true">Altitude</button>
+          <button type="button" data-view="fisheye" role="menuitemradio" aria-checked="false">Fisheye</button>
+        </div>
+      </div>
+      <button id="yearBtn" title="Plot how many hours per night each star is observable during the whole year">Visible hours · whole year</button>
     </div>
     <label title="Altitude plot: the night starting on this date. Visible-hours plot: the year of this date.">Date <input type="date" id="date"></label>
     <label title="Observatory: any astropy site name, or one of the custom sites">Location <input type="text" id="location" list="locs" value="lasilla" size="16"></label>
@@ -136,10 +161,12 @@
     <button class="primary" id="plotBtn" title="Recompute and redraw the plot with the current plan, date and location">Update</button>
     <span class="settings-wrap"><button id="settingsBtn" title="Settings" aria-expanded="false" aria-controls="settingsMenu">☰</button>
       <div id="settingsMenu" hidden>
-        <label for="uiLanguage" data-i18n="Language">Language / Sprache / Idioma</label><select id="uiLanguage"><option value="en">English</option><option value="de">Deutsch</option><option value="es">Español</option></select>
+        <label for="uiLanguage" data-i18n="Language">Language</label><select id="uiLanguage"><option value="en">English</option><option value="de">Deutsch</option><option value="es">Español</option></select>
         <label for="plotTheme">Plot appearance</label><select id="plotTheme"><option value="dark">Dark plot</option><option value="light">Light plot</option></select>
         <label for="sunLimit">Yearly plot — Sun altitude</label><select id="sunLimit"><option value="0">0° — Sunset / sunrise</option><option value="-6">−6° — Civil twilight</option><option value="-12">−12° — Nautical twilight</option><option value="-18">−18° — Astronomical twilight</option></select>
-        <button id="infoBtn">Info · v0.61</button>
+        <label for="fisheyeHorizon">Fisheye plot - horizon limit [°]</label><input id="fisheyeHorizon" type="number" step="any" min="0" max="89.9" value="20" inputmode="decimal" title="Smallest altitude shown in the Fisheye view (0 to 89.9 degrees)">
+        <label class="check-setting" for="fisheyeWind"><input id="fisheyeWind" type="checkbox">Fisheye plot - toggle Wind info</label>
+        <button id="infoBtn">Info · v0.7</button>
       </div>
     </span>
     <span id="msg"></span>
@@ -148,9 +175,9 @@
     <label for="scheduleStart">Schedule start (UTC)</label>
     <input type="range" id="scheduleStart" min="0" max="1000" step="1" style="flex:1;min-width:120px" aria-label="Schedule start time; press Space for time options">
     <output id="scheduleTime"></output>
-    <button id="scheduleChoose" title="Set current time, specify UTC time or reset to twilight">Time…</button>
+    <button id="scheduleChoose" title="Set current UTC time, specify UTC time or reset to twilight">Time…</button>
   </div>
-  <div id="plotbox"><div id="plot"></div><div id="plotmsg">Fill the plan (drag stars from a project into it), then click “Altitude” or “Visible hours”.</div></div>
+  <div id="plotbox"><div id="plot"></div><a id="windSpeedLink" href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer" title="Current 10 m wind model — weather data by Open-Meteo"></a><span id="windStatus" hidden></span><div id="plotmsg">Fill the plan (drag stars from a project into it), then choose a night plot or “Visible hours”.</div></div>
 </main>
 
 <dialog id="planDlg">
@@ -164,7 +191,7 @@
 <div class="err" style="color:var(--bad);margin-top:8px"></div>
 <div class="row" style="justify-content:space-between;margin-top:14px"><span id="planActions"><button type="button" id="copyPlan">Copy…</button><button type="button" id="downPlan">Download</button><button type="button" id="delPlan">Delete</button></span><span class="row"><button type="button" data-cancel>Cancel</button><button type="submit" class="primary">Save</button></span></div>
 </form></dialog>
-<dialog id="scheduleTimeDlg"><div class="dialog-header"><h2>Schedule start (UTC)</h2><button type="button" class="dialog-close" data-cancel>×</button></div><div class="row"><button id="timeNow">Current time</button><button id="timeDefault">Default twilight</button></div><label>Specific UTC time (HH:MM)</label><input id="timeExact" type="time"><button id="timeApply">Apply</button></dialog>
+<dialog id="scheduleTimeDlg"><div class="dialog-header"><h2>Schedule start (UTC)</h2><button type="button" class="dialog-close" data-cancel>×</button></div><div class="row"><button id="timeNow">Current time (UTC)</button><button id="timeDefault">Default twilight</button></div><label>Specific UTC time (HH:MM)</label><input id="timeExact" type="time"><button id="timeApply">Apply</button></dialog>
 <dialog id="starDlg">
   <form method="dialog" id="starForm">
     <div class="dialog-header"><h2 id="starTitle">Star</h2><button type="button" class="dialog-close" data-cancel aria-label="Close target editor" title="Close">×</button></div>
@@ -209,9 +236,9 @@
   </form>
 </dialog>
 
-<dialog id="infoDlg"><div class="dialog-header"><h2>Sky Observation Planner · v0.61</h2><button type="button" class="dialog-close" data-cancel aria-label="Close information" title="Close">×</button></div><p>Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.</p>
+<dialog id="infoDlg"><div class="dialog-header"><h2>Sky Observation Planner · v0.7</h2><button type="button" class="dialog-close" data-cancel aria-label="Close information" title="Close">×</button></div><p>Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.</p>
 <p><a href="/help" id="helpLink" target="_blank" rel="noopener">User guide and accepted CSV formats</a></p>
-<p><strong>GNOME launcher:</strong> Run <code>./install_desktop_launcher.sh</code> in the extracted application folder on Ubuntu/GNOME. This activates Conda base and opens your default browser.</p><p><strong>Licence:</strong> MIT License — <a href="/license" target="_blank" rel="noopener">read licence</a>.</p>
+<p><strong>GNOME launcher:</strong> Run <code>./install_desktop_launcher.sh</code> in the extracted application folder on Ubuntu/GNOME. This uses Conda base when present, or a suitable Python installation otherwise, and opens your default browser.</p><p><strong>Licence:</strong> MIT License — <a href="/license" target="_blank" rel="noopener">read licence</a>.</p>
 <p><strong>Software implementation:</strong> ChatGPT (OpenAI, GPT-6), 11 October 2026.<br><strong>Co-author / project direction:</strong> instructed by D. Sebastian.</p>
 <button id="closeInfo">Close</button></dialog>
 <input type="file" id="file" accept=".csv,text/csv" hidden>
@@ -229,7 +256,7 @@ let collapsed = new Set(store.get('collapsed', []));
 let pdata = {};                       // project name -> [stars]
 let plans = [], plan = store.get('plan', null), planStars = [];
 let selected = new Map(), clipboard = null, sortProjectsRA = store.get('sortProjectsRA', store.get('sortRA', false)), sortPlansRA = false;
-let kind = 'night', hasPlot = false, lastData = null, plotSeq = 0, plotTimer = null, uploadTo = null;
+let kind = 'night', nightView = store.get('nightView', 'altitude'), hasPlot = false, lastData = null, plotSeq = 0, plotTimer = null, uploadTo = null;
 
 async function api(path, opts = {}) {
   if (opts.json !== undefined) {
@@ -255,10 +282,336 @@ const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.crea
 const btn = (text, title, fn, cls = 'small') => { const b = el('button', {className: cls, textContent: text, title}); b.onclick = guard(fn); return b; };
 
 // Language selection affects presentation only; target names and saved numeric data are unchanged.
-const LANGUAGE_STRINGS = {"Projects": {"de": "Projekte", "es": "Proyectos"}, "PLANS": {"de": "PLÄNE", "es": "PLANES"}, "Plans": {"de": "Pläne", "es": "Planes"}, "+ New": {"de": "+ Neu", "es": "+ Nuevo"}, "Open project…": {"de": "Projekt öffnen…", "es": "Abrir proyecto…"}, "Open project...": {"de": "Projekt öffnen…", "es": "Abrir proyecto…"}, "filter targets by name…": {"de": "Ziele nach Name filtern…", "es": "Filtrar objetivos por nombre…"}, "Altitude · one night": {"de": "Höhe · eine Nacht", "es": "Altura · una noche"}, "Visible hours · whole year": {"de": "Sichtbare Stunden · ganzes Jahr", "es": "Horas visibles · año completo"}, "Date": {"de": "Datum", "es": "Fecha"}, "Location": {"de": "Standort", "es": "Ubicación"}, "Update": {"de": "Aktualisieren", "es": "Actualizar"}, "Calculating": {"de": "Berechnung läuft", "es": "Calculando"}, "Plot appearance": {"de": "Diagrammdarstellung", "es": "Aspecto del gráfico"}, "Dark plot": {"de": "Dunkles Diagramm", "es": "Gráfico oscuro"}, "Light plot": {"de": "Helles Diagramm", "es": "Gráfico claro"}, "Yearly plot — Sun altitude": {"de": "Jahresdiagramm — Sonnenhöhe", "es": "Gráfico anual — altura solar"}, "Language": {"de": "Sprache", "es": "Idioma"}, "0° — Sunset / sunrise": {"de": "0° — Sonnenuntergang / Sonnenaufgang", "es": "0° — Puesta / salida del Sol"}, "−6° — Civil twilight": {"de": "−6° — Bürgerliche Dämmerung", "es": "−6° — Crepúsculo civil"}, "−12° — Nautical twilight": {"de": "−12° — Nautische Dämmerung", "es": "−12° — Crepúsculo náutico"}, "−18° — Astronomical twilight": {"de": "−18° — Astronomische Dämmerung", "es": "−18° — Crepúsculo astronómico"}, "Schedule start (UTC)": {"de": "Zeitplanbeginn (UTC)", "es": "Inicio de programación (UTC)"}, "Time…": {"de": "Zeit…", "es": "Hora…"}, "Plan defaults": {"de": "Planvorgaben", "es": "Valores predeterminados del plan"}, "Name": {"de": "Name", "es": "Nombre"}, "Mode": {"de": "Modus", "es": "Modo"}, "Plan": {"de": "Plan", "es": "Plan"}, "Schedule": {"de": "Zeitplan", "es": "Programa"}, "Default exposure time [s]": {"de": "Standard-Belichtungszeit [s]", "es": "Exposición predeterminada [s]"}, "Default delay between exposures [min]": {"de": "Standardpause zwischen Belichtungen [min]", "es": "Pausa predeterminada entre exposiciones [min]"}, "Start of observation": {"de": "Beobachtungsbeginn", "es": "Inicio de observación"}, "Sunset": {"de": "Sonnenuntergang", "es": "Puesta del Sol"}, "Civil twilight": {"de": "Bürgerliche Dämmerung", "es": "Crepúsculo civil"}, "Nautical twilight": {"de": "Nautische Dämmerung", "es": "Crepúsculo náutico"}, "Astronomical twilight": {"de": "Astronomische Dämmerung", "es": "Crepúsculo astronómico"}, "Apply exposure time to all targets in this plan": {"de": "Belichtungszeit für alle Ziele dieses Plans übernehmen", "es": "Aplicar el tiempo de exposición a todos los objetivos del plan"}, "Apply delay to all targets in this plan": {"de": "Pause für alle Ziele dieses Plans übernehmen", "es": "Aplicar la pausa a todos los objetivos del plan"}, "Copy…": {"de": "Kopieren…", "es": "Copiar…"}, "Download": {"de": "Herunterladen", "es": "Descargar"}, "Delete": {"de": "Löschen", "es": "Eliminar"}, "Cancel": {"de": "Abbrechen", "es": "Cancelar"}, "Save": {"de": "Speichern", "es": "Guardar"}, "Current time": {"de": "Aktuelle Zeit", "es": "Hora actual"}, "Default twilight": {"de": "Standarddämmerung", "es": "Crepúsculo predeterminado"}, "Specific UTC time (HH:MM)": {"de": "UTC-Uhrzeit (HH:MM)", "es": "Hora UTC específica (HH:MM)"}, "Apply": {"de": "Übernehmen", "es": "Aplicar"}, "Star": {"de": "Ziel", "es": "Objetivo"}, "Name / SIMBAD identifier": {"de": "Name / SIMBAD-Kennung", "es": "Nombre / identificador SIMBAD"}, "Search SIMBAD": {"de": "SIMBAD durchsuchen", "es": "Buscar en SIMBAD"}, "RA (hh mm ss or hh:mm:ss)": {"de": "Rektaszension (hh mm ss oder hh:mm:ss)", "es": "AR (hh mm ss o hh:mm:ss)"}, "Dec (±dd mm ss)": {"de": "Deklination (±dd mm ss)", "es": "Dec (±dd mm ss)"}, "Gaia G magnitude (Gmag, optional)": {"de": "Gaia-G-Helligkeit (Gmag, optional)", "es": "Magnitud G de Gaia (Gmag, opcional)"}, "Max. airmass": {"de": "Max. Luftmasse", "es": "Masa de aire máxima"}, "Moon phase": {"de": "Mondphase", "es": "Fase lunar"}, "Min. Moon distance [deg]": {"de": "Min. Mondabstand [Grad]", "es": "Distancia lunar mín. [grados]"}, "Moon velocity limit [km/s] (optional)": {"de": "Grenze der Mondgeschwindigkeit [km/s] (optional)", "es": "Límite de velocidad lunar [km/s] (opcional)"}, "Telluric velocity limit [km/s] (optional)": {"de": "Grenze der tellurischen Geschwindigkeit [km/s] (optional)", "es": "Límite de velocidad telúrica [km/s] (opcional)"}, "Radial velocity [km/s] (optional)": {"de": "Radialgeschwindigkeit [km/s] (optional)", "es": "Velocidad radial [km/s] (opcional)"}, "Exposure time [s]": {"de": "Belichtungszeit [s]", "es": "Tiempo de exposición [s]"}, "Number of exposures": {"de": "Anzahl Belichtungen", "es": "Número de exposiciones"}, "Delay between exposures [min]": {"de": "Pause zwischen Belichtungen [min]", "es": "Pausa entre exposiciones [min]"}, "Comments (up to 1000 words)": {"de": "Kommentare (bis 1000 Wörter)", "es": "Comentarios (hasta 1000 palabras)"}, "Project": {"de": "Projekt", "es": "Proyecto"}, "Default max. airmass": {"de": "Standardwert max. Luftmasse", "es": "Masa de aire máxima predeterminada"}, "Default Moon phase": {"de": "Standard-Mondphase", "es": "Fase lunar predeterminada"}, "Default min. Moon distance [deg]": {"de": "Standard-Mindestmondabstand [Grad]", "es": "Distancia lunar mínima predeterminada [grados]"}, "Default Moon velocity limit [km/s] (optional)": {"de": "Standardgrenze Mondgeschwindigkeit [km/s] (optional)", "es": "Límite predeterminado de velocidad lunar [km/s] (opcional)"}, "Default Telluric velocity limit [km/s] (optional)": {"de": "Standardgrenze tellurische Geschwindigkeit [km/s] (optional)", "es": "Límite predeterminado de velocidad telúrica [km/s] (opcional)"}, "also apply to the stars already in this project": {"de": "auch auf vorhandene Ziele in diesem Projekt anwenden", "es": "aplicar también a los objetivos existentes en este proyecto"}, "Bright (100%)": {"de": "Hell (100 %)", "es": "Brillante (100 %)"}, "Gray (70%)": {"de": "Grau (70 %)", "es": "Gris (70 %)"}, "Dark (40%)": {"de": "Dunkel (40 %)", "es": "Oscuro (40 %)"}, "Close": {"de": "Schließen", "es": "Cerrar"}, "None": {"de": "Keine", "es": "Ninguno"}, "Not available": {"de": "Nicht verfügbar", "es": "No disponible"}, "Sort RA": {"de": "Nach RA sortieren", "es": "Ordenar por AR"}, "Undo": {"de": "Rückgängig", "es": "Deshacer"}, "Redo": {"de": "Wiederholen", "es": "Rehacer"}, "Select all": {"de": "Alle auswählen", "es": "Seleccionar todo"}, "Upload": {"de": "Hochladen", "es": "Subir"}, "Info": {"de": "Info", "es": "Información"}, "Settings": {"de": "Einstellungen", "es": "Configuración"}, "User guide and accepted CSV formats": {"de": "Benutzerhandbuch und unterstützte CSV-Formate", "es": "Manual de usuario y formatos CSV admitidos"}, "Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.": {"de": "Interaktiver astronomischer Beobachtungsplaner für Zielkataloge, Beobachtungspläne, Höhenkurven und Jahressichtbarkeit.", "es": "Planificador astronómico interactivo para catálogos de objetivos, planes de observación, curvas de altura y visibilidad anual."}, "Fill the plan (drag stars from a project into it), then click “Altitude” or “Visible hours”.": {"de": "Plan füllen (Ziele aus einem Projekt ziehen), dann „Höhe“ oder „Sichtbare Stunden“ wählen.", "es": "Complete el plan (arrastre objetivos desde un proyecto) y pulse «Altura» u «Horas visibles»."}};
+const LANGUAGE_STRINGS = {"Projects": {"de": "Projekte", "es": "Proyectos"}, "PLANS": {"de": "PLÄNE", "es": "PLANES"}, "Plans": {"de": "Pläne", "es": "Planes"}, "+ New": {"de": "+ Neu", "es": "+ Nuevo"}, "Open project…": {"de": "Projekt öffnen…", "es": "Abrir proyecto…"}, "Open project...": {"de": "Projekt öffnen…", "es": "Abrir proyecto…"}, "filter targets by name…": {"de": "Ziele nach Name filtern…", "es": "Filtrar objetivos por nombre…"}, "One night:": {"de":"Eine Nacht:","es":"Una noche:"}, "Altitude": {"de":"Höhe","es":"Altitud"}, "Fisheye": {"de":"Fisheye","es":"Ojo de pez"}, "Zenith":{"de":"Zenit","es":"Cenit"}, "Choose a nightly altitude or fisheye projection": {"de":"Höhen- oder Fisheye-Darstellung wählen","es":"Elegir vista nocturna de altitud u ojo de pez"}, "Night plot projection": {"de":"Nachtdiagramm-Darstellung","es":"Proyección nocturna"}, "Choose night plot projection":{"de":"Nachtdarstellung wählen","es":"Elegir proyección nocturna"}, "Choose Altitude or Fisheye":{"de":"Höhe oder Fisheye wählen","es":"Elegir altitud u ojo de pez"}, "Plot the selected one-night view":{"de":"Gewählte Nachtdarstellung anzeigen","es":"Mostrar la vista nocturna seleccionada"}, "Fisheye plot - horizon limit [°]":{"de":"Fisheye-Diagramm – Horizontgrenze [°]","es":"Gráfico ojo de pez – altitud mínima [°]"}, "Fisheye plot - toggle Wind info":{"de":"Fisheye-Diagramm – Windinformationen anzeigen","es":"Gráfico ojo de pez – mostrar viento"}, "Smallest altitude shown in the Fisheye view (0 to 89.9 degrees)":{"de":"Kleinste Höhe im Fisheye-Diagramm (0 bis 89,9 Grad)","es":"Altitud mínima en el ojo de pez (0 a 89,9 grados)"}, "Current wind":{"de":"Aktueller Wind","es":"Viento actual"}, "Wind unavailable":{"de":"Winddaten nicht verfügbar","es":"Datos de viento no disponibles"}, "Current 10 m wind model — weather data by Open-Meteo":{"de":"Aktuelles Windmodell in 10 m Höhe – Wetterdaten: Open-Meteo","es":"Modelo de viento actual a 10 m – datos: Open-Meteo"}, "Altitude · one night": {"de": "Höhe · eine Nacht", "es": "Altura · una noche"}, "Visible hours · whole year": {"de": "Sichtbare Stunden · ganzes Jahr", "es": "Horas visibles · año completo"}, "Date": {"de": "Datum", "es": "Fecha"}, "Location": {"de": "Standort", "es": "Ubicación"}, "Update": {"de": "Aktualisieren", "es": "Actualizar"}, "Calculating": {"de": "Berechnung läuft", "es": "Calculando"}, "Plot appearance": {"de": "Diagrammdarstellung", "es": "Aspecto del gráfico"}, "Dark plot": {"de": "Dunkles Diagramm", "es": "Gráfico oscuro"}, "Light plot": {"de": "Helles Diagramm", "es": "Gráfico claro"}, "Yearly plot — Sun altitude": {"de": "Jahresdiagramm — Sonnenhöhe", "es": "Gráfico anual — altura solar"}, "Language": {"de": "Sprache", "es": "Idioma"}, "0° — Sunset / sunrise": {"de": "0° — Sonnenuntergang / Sonnenaufgang", "es": "0° — Puesta / salida del Sol"}, "−6° — Civil twilight": {"de": "−6° — Bürgerliche Dämmerung", "es": "−6° — Crepúsculo civil"}, "−12° — Nautical twilight": {"de": "−12° — Nautische Dämmerung", "es": "−12° — Crepúsculo náutico"}, "−18° — Astronomical twilight": {"de": "−18° — Astronomische Dämmerung", "es": "−18° — Crepúsculo astronómico"}, "Schedule start (UTC)": {"de": "Zeitplanbeginn (UTC)", "es": "Inicio de programación (UTC)"}, "Time…": {"de": "Zeit…", "es": "Hora…"}, "Plan defaults": {"de": "Planvorgaben", "es": "Valores predeterminados del plan"}, "Name": {"de": "Name", "es": "Nombre"}, "Mode": {"de": "Modus", "es": "Modo"}, "Plan": {"de": "Plan", "es": "Plan"}, "Schedule": {"de": "Zeitplan", "es": "Programa"}, "Default exposure time [s]": {"de": "Standard-Belichtungszeit [s]", "es": "Exposición predeterminada [s]"}, "Default delay between exposures [min]": {"de": "Standardpause zwischen Belichtungen [min]", "es": "Pausa predeterminada entre exposiciones [min]"}, "Start of observation": {"de": "Beobachtungsbeginn", "es": "Inicio de observación"}, "Sunset": {"de": "Sonnenuntergang", "es": "Puesta del Sol"}, "Civil twilight": {"de": "Bürgerliche Dämmerung", "es": "Crepúsculo civil"}, "Nautical twilight": {"de": "Nautische Dämmerung", "es": "Crepúsculo náutico"}, "Astronomical twilight": {"de": "Astronomische Dämmerung", "es": "Crepúsculo astronómico"}, "Apply exposure time to all targets in this plan": {"de": "Belichtungszeit für alle Ziele dieses Plans übernehmen", "es": "Aplicar el tiempo de exposición a todos los objetivos del plan"}, "Apply delay to all targets in this plan": {"de": "Pause für alle Ziele dieses Plans übernehmen", "es": "Aplicar la pausa a todos los objetivos del plan"}, "Copy…": {"de": "Kopieren…", "es": "Copiar…"}, "Download": {"de": "Herunterladen", "es": "Descargar"}, "Delete": {"de": "Löschen", "es": "Eliminar"}, "Cancel": {"de": "Abbrechen", "es": "Cancelar"}, "Save": {"de": "Speichern", "es": "Guardar"}, "Current time": {"de": "Aktuelle Zeit", "es": "Hora actual"}, "Default twilight": {"de": "Standarddämmerung", "es": "Crepúsculo predeterminado"}, "Specific UTC time (HH:MM)": {"de": "UTC-Uhrzeit (HH:MM)", "es": "Hora UTC específica (HH:MM)"}, "Apply": {"de": "Übernehmen", "es": "Aplicar"}, "Star": {"de": "Ziel", "es": "Objetivo"}, "Name / SIMBAD identifier": {"de": "Name / SIMBAD-Kennung", "es": "Nombre / identificador SIMBAD"}, "Search SIMBAD": {"de": "SIMBAD durchsuchen", "es": "Buscar en SIMBAD"}, "RA (hh mm ss or hh:mm:ss)": {"de": "Rektaszension (hh mm ss oder hh:mm:ss)", "es": "AR (hh mm ss o hh:mm:ss)"}, "Dec (±dd mm ss)": {"de": "Deklination (±dd mm ss)", "es": "Dec (±dd mm ss)"}, "Gaia G magnitude (Gmag, optional)": {"de": "Gaia-G-Helligkeit (Gmag, optional)", "es": "Magnitud G de Gaia (Gmag, opcional)"}, "Max. airmass": {"de": "Max. Luftmasse", "es": "Masa de aire máxima"}, "Moon phase": {"de": "Mondphase", "es": "Fase lunar"}, "Min. Moon distance [deg]": {"de": "Min. Mondabstand [Grad]", "es": "Distancia lunar mín. [grados]"}, "Moon velocity limit [km/s] (optional)": {"de": "Grenze der Mondgeschwindigkeit [km/s] (optional)", "es": "Límite de velocidad lunar [km/s] (opcional)"}, "Telluric velocity limit [km/s] (optional)": {"de": "Grenze der tellurischen Geschwindigkeit [km/s] (optional)", "es": "Límite de velocidad telúrica [km/s] (opcional)"}, "Radial velocity [km/s] (optional)": {"de": "Radialgeschwindigkeit [km/s] (optional)", "es": "Velocidad radial [km/s] (opcional)"}, "Exposure time [s]": {"de": "Belichtungszeit [s]", "es": "Tiempo de exposición [s]"}, "Number of exposures": {"de": "Anzahl Belichtungen", "es": "Número de exposiciones"}, "Delay between exposures [min]": {"de": "Pause zwischen Belichtungen [min]", "es": "Pausa entre exposiciones [min]"}, "Comments (up to 1000 words)": {"de": "Kommentare (bis 1000 Wörter)", "es": "Comentarios (hasta 1000 palabras)"}, "Project": {"de": "Projekt", "es": "Proyecto"}, "Default max. airmass": {"de": "Standardwert max. Luftmasse", "es": "Masa de aire máxima predeterminada"}, "Default Moon phase": {"de": "Standard-Mondphase", "es": "Fase lunar predeterminada"}, "Default min. Moon distance [deg]": {"de": "Standard-Mindestmondabstand [Grad]", "es": "Distancia lunar mínima predeterminada [grados]"}, "Default Moon velocity limit [km/s] (optional)": {"de": "Standardgrenze Mondgeschwindigkeit [km/s] (optional)", "es": "Límite predeterminado de velocidad lunar [km/s] (opcional)"}, "Default Telluric velocity limit [km/s] (optional)": {"de": "Standardgrenze tellurische Geschwindigkeit [km/s] (optional)", "es": "Límite predeterminado de velocidad telúrica [km/s] (opcional)"}, "also apply to the stars already in this project": {"de": "auch auf vorhandene Ziele in diesem Projekt anwenden", "es": "aplicar también a los objetivos existentes en este proyecto"}, "Bright (100%)": {"de": "Hell (100 %)", "es": "Brillante (100 %)"}, "Gray (70%)": {"de": "Grau (70 %)", "es": "Gris (70 %)"}, "Dark (40%)": {"de": "Dunkel (40 %)", "es": "Oscuro (40 %)"}, "Close": {"de": "Schließen", "es": "Cerrar"}, "None": {"de": "Keine", "es": "Ninguno"}, "Not available": {"de": "Nicht verfügbar", "es": "No disponible"}, "Sort RA": {"de": "Nach RA sortieren", "es": "Ordenar por AR"}, "Undo": {"de": "Rückgängig", "es": "Deshacer"}, "Redo": {"de": "Wiederholen", "es": "Rehacer"}, "Select all": {"de": "Alle auswählen", "es": "Seleccionar todo"}, "Upload": {"de": "Hochladen", "es": "Subir"}, "Info": {"de": "Info", "es": "Información"}, "Settings": {"de": "Einstellungen", "es": "Configuración"}, "User guide and accepted CSV formats": {"de": "Benutzerhandbuch und unterstützte CSV-Formate", "es": "Manual de usuario y formatos CSV admitidos"}, "Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.": {"de": "Interaktiver astronomischer Beobachtungsplaner für Zielkataloge, Beobachtungspläne, Höhenkurven und Jahressichtbarkeit.", "es": "Planificador astronómico interactivo para catálogos de objetivos, planes de observación, curvas de altura y visibilidad anual."}, "Fill the plan (drag stars from a project into it), then choose a night plot or “Visible hours”.": {"de": "Plan füllen (Ziele aus einem Projekt ziehen), dann eine Nachtdarstellung oder „Sichtbare Stunden“ wählen.", "es": "Complete el plan (arrastre objetivos desde un proyecto) y elija una vista nocturna u «Horas visibles»."}};
 let uiLanguage = store.get('uiLanguage','en');
 if (!['en','de','es'].includes(uiLanguage)) uiLanguage='en';
-const translateUI = text => (LANGUAGE_STRINGS[text]?.[uiLanguage] || text);
+const EXTRA_UI_STRINGS = {
+  "Project actions: defaults, download and delete": {
+    "de": "Projektaktionen: Vorgaben, Download und Löschen",
+    "es": "Acciones del proyecto: valores predeterminados, descarga y eliminación"
+  },
+  "Settings for project": {
+    "de": "Einstellungen für Projekt",
+    "es": "Configuración del proyecto"
+  },
+  "Defaults…": {
+    "de": "Vorgaben…",
+    "es": "Valores predeterminados…"
+  },
+  "Download CSV": {
+    "de": "CSV herunterladen",
+    "es": "Descargar CSV"
+  },
+  "Delete project…": {
+    "de": "Projekt löschen…",
+    "es": "Eliminar proyecto…"
+  },
+  "Change the default Moon and airmass limits": {
+    "de": "Standardgrenzen für Mond und Luftmasse ändern",
+    "es": "Cambiar los límites predeterminados de Luna y masa de aire"
+  },
+  "Download this project as CSV": {
+    "de": "Dieses Projekt als CSV herunterladen",
+    "es": "Descargar este proyecto como CSV"
+  },
+  "Permanently delete this project and all its targets": {
+    "de": "Dieses Projekt und alle seine Ziele dauerhaft löschen",
+    "es": "Eliminar permanentemente este proyecto y todos sus objetivos"
+  },
+  "Plot how many hours per night each star is observable during the whole year": {
+    "de": "Beobachtbare Stunden pro Nacht für das gesamte Jahr anzeigen",
+    "es": "Mostrar las horas observables por noche durante todo el año"
+  },
+  "Altitude plot: the night starting on this date. Visible-hours plot: the year of this date.": {
+    "de": "Höhendiagramm: Nacht ab diesem Datum. Jahresdiagramm: Jahr dieses Datums.",
+    "es": "Gráfico de altitud: noche que comienza en esta fecha. Gráfico anual: año de esta fecha."
+  },
+  "Observatory: any astropy site name, or one of the custom sites": {
+    "de": "Observatorium: Astropy-Standortname oder benutzerdefinierter Standort",
+    "es": "Observatorio: nombre de sitio de Astropy o ubicación personalizada"
+  },
+  "Recompute and redraw the plot with the current plan, date and location": {
+    "de": "Diagramm mit aktuellem Plan, Datum und Standort neu berechnen",
+    "es": "Recalcular el gráfico con el plan, fecha y ubicación actuales"
+  },
+  "Restore the initial plot limits": {
+    "de": "Anfängliche Diagrammgrenzen wiederherstellen",
+    "es": "Restablecer los límites iniciales del gráfico"
+  },
+  "Expand all projects": {
+    "de": "Alle Projekte aufklappen",
+    "es": "Expandir todos los proyectos"
+  },
+  "Collapse all projects": {
+    "de": "Alle Projekte zuklappen",
+    "es": "Contraer todos los proyectos"
+  },
+  "Select this target": {
+    "de": "Dieses Ziel auswählen",
+    "es": "Seleccionar este objetivo"
+  },
+  "Select or unselect all targets in this project": {
+    "de": "Alle Ziele in diesem Projekt auswählen/abwählen",
+    "es": "Seleccionar o deseleccionar todos los objetivos de este proyecto"
+  },
+  "Select or unselect all plan targets": {
+    "de": "Alle Planziele auswählen/abwählen",
+    "es": "Seleccionar o deseleccionar todos los objetivos del plan"
+  },
+  "Add a copy of this star to the plan (also by dragging)": {
+    "de": "Kopie dieses Ziels zum Plan hinzufügen (auch per Ziehen)",
+    "es": "Añadir una copia al plan (también arrastrando)"
+  },
+  "Edit this star in the plan (the project star stays unchanged)": {
+    "de": "Ziel im Plan bearbeiten (Projektziel bleibt unverändert)",
+    "es": "Editar objetivo del plan (el original no cambia)"
+  },
+  "Edit this star": {
+    "de": "Dieses Ziel bearbeiten",
+    "es": "Editar este objetivo"
+  },
+  "Remove this star from the plan": {
+    "de": "Dieses Ziel aus dem Plan entfernen",
+    "es": "Quitar este objetivo del plan"
+  },
+  "Delete this star from the project": {
+    "de": "Dieses Ziel aus dem Projekt löschen",
+    "es": "Eliminar este objetivo del proyecto"
+  },
+  "Taken from this project": {
+    "de": "Aus diesem Projekt übernommen",
+    "es": "Copiado de este proyecto"
+  },
+  "Sort selected targets by RA (or all if none selected), keeping other target positions": {
+    "de": "Ausgewählte Ziele nach RA sortieren (sonst alle), andere Positionen beibehalten",
+    "es": "Ordenar los objetivos seleccionados por AR (o todos), conservando las demás posiciones"
+  },
+  "Change limits for selected targets": {
+    "de": "Grenzen ausgewählter Ziele ändern",
+    "es": "Cambiar límites de los objetivos seleccionados"
+  },
+  "Delete selected targets": {
+    "de": "Ausgewählte Ziele löschen",
+    "es": "Eliminar objetivos seleccionados"
+  },
+  "Cut": {
+    "de": "Ausschneiden",
+    "es": "Cortar"
+  },
+  "Cut selected targets for pasting elsewhere in this plan": {
+    "de": "Ausgewählte Ziele zum Einfügen im Plan ausschneiden",
+    "es": "Cortar objetivos para pegarlos en otra posición del plan"
+  },
+  "Add a new target to this project": {
+    "de": "Neues Ziel zu diesem Projekt hinzufügen",
+    "es": "Añadir un nuevo objetivo al proyecto"
+  },
+  "Upload a CSV target catalogue": {
+    "de": "CSV-Zielkatalog hochladen",
+    "es": "Subir catálogo de objetivos CSV"
+  },
+  "Copy all displayed targets to the current plan": {
+    "de": "Alle angezeigten Ziele in den aktuellen Plan kopieren",
+    "es": "Copiar todos los objetivos mostrados al plan actual"
+  },
+  "Sort project targets by RA, starting after the largest significant gap": {
+    "de": "Projektziele nach RA sortieren (größte Lücke berücksichtigen)",
+    "es": "Ordenar objetivos por AR comenzando tras el mayor intervalo"
+  },
+  "Expand project": {
+    "de": "Projekt aufklappen",
+    "es": "Expandir proyecto"
+  },
+  "Collapse project": {
+    "de": "Projekt zuklappen",
+    "es": "Contraer proyecto"
+  },
+  "Close project view without deleting it": {
+    "de": "Projektansicht schließen, ohne Projekt zu löschen",
+    "es": "Cerrar vista del proyecto sin eliminarlo"
+  },
+  "close": {
+    "de": "schließen",
+    "es": "cerrar"
+  },
+  "+ target": {
+    "de": "+ Ziel",
+    "es": "+ objetivo"
+  },
+  "Drop stars here to add them to the plan": {
+    "de": "Ziele hierher ziehen, um sie zum Plan hinzuzufügen",
+    "es": "Arrastre objetivos aquí para añadirlos al plan"
+  },
+  "Drag to resize catalogue and plots": {
+    "de": "Ziehen, um Katalog und Diagramme anzupassen",
+    "es": "Arrastrar para cambiar el tamaño del catálogo y los gráficos"
+  },
+  "Resize catalogue and plot": {
+    "de": "Katalog und Diagrammgröße ändern",
+    "es": "Cambiar tamaño del catálogo y gráfico"
+  },
+  "Set current UTC time, specify UTC time or reset to twilight": {
+    "de": "Aktuelle UTC-Zeit setzen, UTC-Zeit eingeben oder auf Dämmerung zurücksetzen",
+    "es": "Establecer hora UTC actual, introducir UTC o volver al crepúsculo"
+  },
+  "Current time (UTC)": {
+    "de": "Aktuelle Zeit (UTC)",
+    "es": "Hora actual (UTC)"
+  },
+  "Current UTC time is outside the selected night": {
+    "de": "Die aktuelle UTC-Zeit liegt außerhalb der gewählten Nacht",
+    "es": "La hora UTC actual está fuera de la noche seleccionada"
+  },
+  "Open a project above, or create a new one.": {
+    "de": "Oben ein Projekt öffnen oder ein neues erstellen.",
+    "es": "Abra un proyecto arriba o cree uno nuevo."
+  },
+  "No match": {
+    "de": "Keine Treffer",
+    "es": "Sin coincidencias"
+  },
+  "No stars yet": {
+    "de": "Noch keine Ziele",
+    "es": "Todavía no hay objetivos"
+  },
+  "Sky Observation Planner v0.7": {
+    "de": "Sky Observation Planner v0.7",
+    "es": "Sky Observation Planner v0.7"
+  },
+  "New project": {
+    "de": "Neues Projekt",
+    "es": "Nuevo proyecto"
+  },
+  "New plan": {
+    "de": "Neuer Plan",
+    "es": "Nuevo plan"
+  },
+  "Defaults of": {
+    "de": "Vorgaben für",
+    "es": "Valores predeterminados de"
+  },
+  "Edit target": {
+    "de": "Ziel bearbeiten",
+    "es": "Editar objetivo"
+  },
+  "Add target": {
+    "de": "Ziel hinzufügen",
+    "es": "Añadir objetivo"
+  },
+  "(plan copy)": {
+    "de": "(Plankopie)",
+    "es": "(copia del plan)"
+  },
+  "Choose a preset Moon altitude": {
+    "de": "Mondhöhenvorgabe wählen",
+    "es": "Elegir una altitud lunar predefinida"
+  },
+  "Choose which plan to work on": {
+    "de": "Zu bearbeitenden Plan auswählen",
+    "es": "Elegir el plan con el que trabajar"
+  },
+  "Clear target filter": {
+    "de": "Zielfilter zurücksetzen",
+    "es": "Borrar filtro de objetivos"
+  },
+  "Close information": {
+    "de": "Information schließen",
+    "es": "Cerrar información"
+  },
+  "Close plan settings": {
+    "de": "Planeinstellungen schließen",
+    "es": "Cerrar configuración del plan"
+  },
+  "Close project defaults": {
+    "de": "Projektvorgaben schließen",
+    "es": "Cerrar valores predeterminados del proyecto"
+  },
+  "Close target editor": {
+    "de": "Zieleditor schließen",
+    "es": "Cerrar editor de objetivos"
+  },
+  "Close without saving": {
+    "de": "Ohne Speichern schließen",
+    "es": "Cerrar sin guardar"
+  },
+  "Collapse all open projects": {
+    "de": "Alle geöffneten Projekte einklappen",
+    "es": "Contraer todos los proyectos abiertos"
+  },
+  "Create a new plan with selectable defaults": {
+    "de": "Neuen Plan mit wählbaren Vorgaben erstellen",
+    "es": "Crear un nuevo plan con valores predeterminados seleccionables"
+  },
+  "Create a new project with default Moon and airmass limits": {
+    "de": "Neues Projekt mit Standardgrenzen für Mond und Luftmasse erstellen",
+    "es": "Crear un proyecto con límites lunares y de masa de aire predeterminados"
+  },
+  "Drag the bottom edge to expand; all text is retained": {
+    "de": "Zum Vergrößern Unterkante ziehen; Text bleibt vollständig erhalten",
+    "es": "Arrastre el borde inferior para ampliar; se conserva todo el texto"
+  },
+  "Enter any finite number, including negative values": {
+    "de": "Beliebige endliche Zahl eingeben, auch negative Werte",
+    "es": "Introduzca cualquier número finito, incluidos valores negativos"
+  },
+  "Moon altitude threshold in degrees": {
+    "de": "Mondhöhengrenze in Grad",
+    "es": "Umbral de altitud lunar en grados"
+  },
+  "Open an existing project": {
+    "de": "Bestehendes Projekt öffnen",
+    "es": "Abrir un proyecto existente"
+  },
+  "Plan defaults and actions": {
+    "de": "Planvorgaben und Aktionen",
+    "es": "Valores predeterminados y acciones del plan"
+  },
+  "Plan settings": {
+    "de": "Planeinstellungen",
+    "es": "Configuración del plan"
+  },
+  "Save the project settings": {
+    "de": "Projekteinstellungen speichern",
+    "es": "Guardar la configuración del proyecto"
+  },
+  "Save this star": {
+    "de": "Dieses Ziel speichern",
+    "es": "Guardar este objetivo"
+  },
+  "Schedule start time; press Space for time options": {
+    "de": "Startzeit des Zeitplans; Leertaste für Zeitoptionen",
+    "es": "Hora de inicio del programa; pulse Espacio para opciones"
+  },
+  "Select a Moon altitude preset": {
+    "de": "Mondhöhenvorgabe auswählen",
+    "es": "Seleccionar altitud lunar predefinida"
+  },
+  "Show targets matching the name (in all open projects)": {
+    "de": "Ziele mit passendem Namen anzeigen (in allen offenen Projekten)",
+    "es": "Mostrar objetivos cuyo nombre coincide (en todos los proyectos abiertos)"
+  }
+};
+const translateUI = text => {
+  const translated=(LANGUAGE_STRINGS[text] || EXTRA_UI_STRINGS[text])?.[uiLanguage];
+  if(translated || uiLanguage==='en')return translated || text;
+  // The undo/redo tooltips contain a live count, so they cannot be keyed by
+  // one fixed English string in the static translation dictionaries.
+  const undo=/^Undo up to 30 previous changes in this plan \((\d+) available\)$/.exec(text);
+  if(undo)return uiLanguage==='de'
+    ? `Bis zu 30 letzte Planänderungen rückgängig (${undo[1]} verfügbar)`
+    : `Deshacer hasta 30 cambios anteriores en este plan (${undo[1]} disponibles)`;
+  const redo=/^Redo the last undone change \((\d+) available\)$/.exec(text);
+  if(redo)return uiLanguage==='de'
+    ? `Letzte rückgängig gemachte Änderung wiederholen (${redo[1]} verfügbar)`
+    : `Rehacer el último cambio deshecho (${redo[1]} disponibles)`;
+  return text;
+};
+if (!['altitude','fisheye'].includes(nightView)) nightView='altitude';
+function updateNightViewName() {
+  const label=translateUI(nightView==='fisheye'?'Fisheye':'Altitude');
+  if($('#nightViewName').textContent!==label)$('#nightViewName').textContent=label;
+  document.querySelectorAll('#nightViewMenu [data-view]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.view===nightView)));
+}
 const originalNodes = new WeakMap();
 const originalAttrs = new WeakMap();
 let translatingUI=false;
@@ -267,12 +620,20 @@ function localizeDocument(){
   translatingUI=true;
   try{
     document.documentElement.lang=uiLanguage;
-    document.title='Sky Observation Planner v0.61';
-    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    document.title='Sky Observation Planner v0.7';
+    // Plotly owns #plot and localizes its labels via plotText(). Do not walk
+    // or mutate its potentially large SVG tree when switching UI language.
+    // User-entered names and coordinates must remain completely untouched.
+    const skipTranslation='script,style,textarea,#plot,.card .n,.card .tag,.proj .head b,#picker option,#planSel option,option[data-user]';
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT,{
+      acceptNode(node){
+        if(node.nodeType===Node.ELEMENT_NODE)
+          return node.matches(skipTranslation)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
     let node;
     while((node=walker.nextNode())){
-      // User-provided identifiers must never pass through the UI translator.
-      if(node.parentElement?.closest('script,style,textarea,.card .n,.card .tag,.proj .head b,#picker option,#planSel option,option[data-user]'))continue;
       const text=node.textContent, match=text.match(/^(\s*)(.*?)(\s*)$/s);
       if(!match || !match[2])continue;
       if(!originalNodes.has(node))originalNodes.set(node,match[2]);
@@ -282,6 +643,7 @@ function localizeDocument(){
       if(text!==val)node.textContent=val;
     }
     for(const e of document.querySelectorAll('[title],[placeholder],[aria-label]')){
+      if(e.closest('#plot'))continue;
       let orig=originalAttrs.get(e);
       if(!orig){orig={};for(const a of ['title','placeholder','aria-label'])if(e.hasAttribute(a))orig[a]=e.getAttribute(a);originalAttrs.set(e,orig);}
       for(const [key,old] of Object.entries(orig)){
@@ -290,11 +652,20 @@ function localizeDocument(){
       }
     }
     const choose=document.getElementById('uiLanguage');if(choose)choose.value=uiLanguage;
+    updateNightViewName();
+    // Project name is user content; translate only the fixed aria-label prefix.
+    document.querySelectorAll('[data-project-settings]').forEach(button => {
+      button.setAttribute('aria-label', `${translateUI('Settings for project')} ${button.dataset.projectSettings}`);
+    });
   }finally{translatingUI=false;}
 }
 let localizationPending=false;
-const langObserver=new MutationObserver(()=>{
+const langObserver=new MutationObserver(records=>{
   if(translatingUI||localizationPending)return;
+  // Plotly updates many internal nodes. Those changes require no UI translation
+  // and must not repeatedly trigger an expensive document-wide scan.
+  if(records.every(r=>r.target.nodeType===Node.ELEMENT_NODE &&
+      r.target.closest('#plot')))return;
   localizationPending=true;
   queueMicrotask(()=>{localizationPending=false;localizeDocument();});
 });
@@ -309,35 +680,91 @@ localizeDocument();
 document.getElementById("helpLink").href="/help?lang="+uiLanguage;
 
 
-const plotText = (en) => {
- const dict={
- 'Altitude':['Höhe','Altura'],'Airmass':['Luftmasse','Masa de aire'],
- 'Illuminated':['Beleuchtet','Iluminada'],'Moon':['Mond','Luna'],
- 'Moon dis.':['Mondabst.','Dist. lunar'],'Moon vel.':['Mondgeschw.','Vel. lunar'],
+// Plotly does not pass through the DOM translator (mutating its SVG breaks
+// interaction), so we translate axis titles, trace labels, help, and all hover
+// templates at their sources before calling Plotly.react.
+const PLOT_STRINGS = {
+ 'Altitude':['Höhe','Altitud'], 'Airmass':['Luftmasse','Masa de aire'],
+ 'Hours':['Stunden','Horas'], 'Month':['Monat','Mes'], 'Moon':['Mond','Luna'],
+ 'Illuminated':['Beleuchtet','Iluminada'], 'Azimuth':['Azimut','Acimut'],
+ 'Moon dis.':['Mondabst.','Dist. lunar'], 'Moon vel.':['Mondgeschw.','Vel. lunar'],
  'delta Moon vel.':['Δ Mondgeschw.','Δ vel. lunar'],
  'delta Telluric vel.':['Δ tellurische Geschw.','Δ vel. telúrica'],
- 'limit':['Grenze','límite'],'Below horizon':['Unter dem Horizont','Bajo el horizonte'],
+ 'limit':['Grenze','límite'], 'limits:':['Grenzwerte:','límites:'],
+ 'phase':['Phase','fase'], 'bright':['hell','brillante'], 'gray':['grau','gris'], 'dark':['dunkel','oscuro'], 'observable':['beobachtbar','observable'],
+ 'Night of':['Nacht vom','Noche del'], 'Night times (UTC)':['Nachtzeiten (UTC)','Horas nocturnas (UTC)'],
+ 'no sunset/sunrise':['kein Sonnenuntergang/-aufgang','sin puesta/salida del Sol'],
+ 'Time from':['Zeit ab','Tiempo desde'], 'Night starting on':['Nacht ab','Noche a partir del'],
+ 'Hours observable per':['Beobachtbare Stunden pro','Horas observables por'],
+ 'window':['Zeitfenster','intervalo'], 'visibility window':['Sichtbarkeitsfenster','intervalo de visibilidad'],
+ 'Sunset–sunrise':['Sonnenuntergang–Sonnenaufgang','Puesta–salida del Sol'],
+ 'Civil twilight':['Bürgerliche Dämmerung','Crepúsculo civil'],
+ 'Nautical twilight':['Nautische Dämmerung','Crepúsculo náutico'],
+ 'Astronomical twilight':['Astronomische Dämmerung','Crepúsculo astronómico'],
+ 'End of nautical twilight':['Ende der nautischen Dämmerung','Fin del crepúsculo náutico'],
+ 'End of astronomical twilight':['Ende der astronomischen Dämmerung','Fin del crepúsculo astronómico'],
+ 'Beginning of nautical twilight':['Beginn der nautischen Dämmerung','Inicio del crepúsculo náutico'],
+ 'Beginning of astronomical twilight':['Beginn der astronomischen Dämmerung','Inicio del crepúsculo astronómico'],
+ 'Sunset':['Sonnenuntergang','Puesta del Sol'], 'Sunrise':['Sonnenaufgang','Salida del Sol'],
+ 'Solar twilight transition':['Dämmerungsübergang der Sonne','Transición del crepúsculo solar'],
+ 'No solar horizon crossings during this night.':['Keine Sonnendurchgänge am Horizont in dieser Nacht.','Sin cruces del Sol por el horizonte durante esta noche.'],
+ 'twilight unavailable':['Dämmerung nicht verfügbar','crepúsculo no disponible'],
+ 'Below horizon':['Unter dem Horizont','Bajo el horizonte'],
  'Airmass limit violated':['Luftmassengrenze verletzt','Límite de masa de aire incumplido'],
  'Moon dis. limit violated':['Mondabstandsgrenze verletzt','Límite de distancia lunar incumplido'],
  'Moon phase limit violated':['Mondphasengrenze verletzt','Límite de fase lunar incumplido'],
  'Moon vel. limit violated':['Mondgeschwindigkeitsgrenze verletzt','Límite de velocidad lunar incumplido'],
  'Telluric vel. limit violated':['Tellurische Geschwindigkeitsgrenze verletzt','Límite de velocidad telúrica incumplido'],
  'All observing limits satisfied':['Alle Beobachtungsgrenzen eingehalten','Se cumplen todos los límites de observación'],
- 'Start':['Beginn','Inicio'],'End':['Ende','Fin'],'Exposure':['Belichtung','Exposición'],
- 'Delay':['Pause','Pausa'],'Whole block:':['Gesamter Block:','Bloque completo:'],
- 'Time from':['Zeit ab','Tiempo desde'],'Hours':['Stunden','Horas'],
- 'Night starting on':['Nacht beginnend am','Noche que comienza el'],
+ 'No observable time (target below horizon or limits exceeded)':['Keine beobachtbare Zeit (Ziel unter Horizont oder Grenzwerte überschritten)','Sin tiempo observable (objetivo bajo el horizonte o límites superados)'],
  'Too close to the Moon':['Zu nah am Mond','Demasiado cerca de la Luna'],
- 'Visible hours':['Sichtbare Stunden','Horas visibles']
- };
- const item=dict[en];return !item||uiLanguage==='en' ? en : item[uiLanguage==='de'?0:1];
+ 'Start':['Beginn','Inicio'], 'End':['Ende','Fin'], 'Exposure':['Belichtung','Exposición'],
+ 'Delay':['Pause','Pausa'], 'Whole block:':['Gesamter Block:','Bloque completo:'],
+ 'FROM':['aus','desde'], 'Restore the initial plot limits':['Anfängliche Diagrammgrenzen wiederherstellen','Restablecer los límites iniciales del gráfico']
 };
-const translateHtmlInfo = (html) => {
- if(uiLanguage==='en')return html;
- for(const source of ['delta Telluric vel.','delta Moon vel.','Moon dis. limit violated','Moon phase limit violated','Moon vel. limit violated','Telluric vel. limit violated','Airmass limit violated','All observing limits satisfied','Too close to the Moon','Below horizon','Whole block:','Illuminated','Moon dis.','Moon vel.','Altitude','Airmass','Exposure','Delay','Start','End','limit'])
-   html=html.replaceAll(source,plotText(source));
- return html;
-};
+const plotText = text => (uiLanguage==='en' || !PLOT_STRINGS[text]) ? text :
+  PLOT_STRINGS[text][uiLanguage==='de'?0:1];
+// Replace phrases longest-first, so e.g. "Moon phase limit violated" never
+// receives a partially translated "limit" in its middle.
+const INFO_PHRASES = Object.keys(PLOT_STRINGS).filter(k=>k!=='window'&&k!=='FROM')
+  .sort((a,b)=>b.length-a.length);
+function translateHtmlInfo(html){
+  if(uiLanguage==='en')return html;
+  // Match whole expressions, not the English prefix inside already translated
+  // German/Spanish words (e.g. "End" must not turn "Ende" into "Endee").
+  for(const source of INFO_PHRASES){
+    const quoted=source.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    html=html.replace(new RegExp('(?<![\\p{L}])'+quoted+'(?![\\p{L}])','gu'),plotText(source));
+  }
+  return html;
+}
+function localizedPlotTitle(d){
+  if(d.kind==='night')return translateHtmlInfo(d.title);
+  const m=d.title.match(/^Hours observable per (.+) window, (.+)$/);
+  if(!m || uiLanguage==='en')return d.title;
+  const period=Object.keys(PLOT_STRINGS).find(k=>k.toLowerCase()===m[1]);
+  const label=period?plotText(period):m[1];
+  return uiLanguage==='de'
+    ? `Beobachtbare Stunden im Zeitfenster „${label}“, ${m[2]}`
+    : `Horas observables en el intervalo «${label}», ${m[2]}`;
+}
+function localizedPeriodLabel(label){
+  const suffix=' visibility window';
+  if(!label.endsWith(suffix) || uiLanguage==='en')return label;
+  const period=plotText(label.slice(0,-suffix.length));
+  return uiLanguage==='de' ? `Sichtbarkeitsfenster: ${period}` : `Intervalo de visibilidad: ${period}`;
+}
+function plotDate(date){
+  const value=new Date(date.slice(0,10)+'T12:00:00Z');
+  return new Intl.DateTimeFormat(uiLanguage,{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).format(value);
+}
+function monthTicks(d){
+  const fmt=new Intl.DateTimeFormat(uiLanguage,{month:'short',timeZone:'UTC'});
+  return Array.from({length:12},(_,i)=>{
+    const value=new Date(Date.UTC(Number(d.year),i,15));
+    return {date:value.toISOString().slice(0,10),label:fmt.format(value)};
+  });
+}
 const P = n => `/api/projects/${enc(n)}`, PL = () => `/api/plans/${enc(plan)}`;
 
 // ======================================================================= plot theme and preferences
@@ -350,6 +777,23 @@ let sunLimit = Number(store.get('sunLimit', -12));
 if (![0,-6,-12,-18].includes(sunLimit)) sunLimit = -12;
 $('#sunLimit').value=String(sunLimit);
 $('#sunLimit').onchange = e => {sunLimit=Number(e.target.value);store.set('sunLimit',sunLimit); if(kind==='year') doPlot();};
+const savedHorizon=Number(store.get('fisheyeHorizon',20));
+let fisheyeHorizon=Number.isFinite(savedHorizon) && savedHorizon>=0 && savedHorizon<90 ? savedHorizon : 20;
+$('#fisheyeHorizon').value=String(fisheyeHorizon);
+$('#fisheyeHorizon').onchange=e=>{
+  const value=Number(e.target.value);
+  if(e.target.value.trim()==='' || !Number.isFinite(value) || value<0 || value>=90){
+    e.target.value=String(fisheyeHorizon);toast('Horizon limit must be between 0° and 90°.');return;
+  }
+  fisheyeHorizon=value;store.set('fisheyeHorizon',value);
+  if(lastData?.kind==='night' && kind==='night' && nightView==='fisheye')renderPlot(lastData);
+};
+let showFisheyeWind=store.get('fisheyeWind',false)===true;
+$('#fisheyeWind').checked=showFisheyeWind;
+$('#fisheyeWind').onchange=e=>{
+  showFisheyeWind=e.target.checked;store.set('fisheyeWind',showFisheyeWind);
+  if(lastData?.kind==='night' && kind==='night' && nightView==='fisheye')renderPlot(lastData);
+};
 $('#settingsBtn').onclick = e => {e.stopPropagation(); const m=$('#settingsMenu');m.hidden=!m.hidden;$('#settingsBtn').setAttribute('aria-expanded',String(!m.hidden));};
 document.addEventListener('click',e=>{if(!e.target.closest('.settings-wrap')){$('#settingsMenu').hidden=true;$('#settingsBtn').setAttribute('aria-expanded','false');}});
 $('#infoBtn').onclick = () => {$('#settingsMenu').hidden=true;$('#infoDlg').showModal();};
@@ -477,7 +921,7 @@ function undoButton(){const count=currentPlanSettings().undo_count||0;return btn
   await api(PL()+'/undo',{json:{}});selected.delete(keyFor('plan',plan));await loadPlans();schedulePlot();
 }));}
 
-function redoButton(){const count=currentPlanSettings().redo_count||0;return btn(translateUI('Redo'),`Redo the last undone change (${count} available)`,guard(async()=>{
+function redoButton(){const count=currentPlanSettings().redo_count||0;return btn('Redo',`Redo the last undone change (${count} available)`,guard(async()=>{
   await api(PL()+'/redo',{json:{}});selected.delete(keyFor('plan',plan));await loadPlans();schedulePlot();
 }));}
 async function historyAction(action){
@@ -679,6 +1123,7 @@ function renderProjects() {
       document.querySelectorAll('.project-menu').forEach(m=>m.hidden=true);
       menu.hidden=!wasHidden;
     });
+    settingsToggle.dataset.projectSettings=name;
     settingsToggle.setAttribute('aria-label',`Settings for project ${name}`);
     menu.append(
       btn('Defaults…','Change the default Moon and airmass limits',()=>{menu.hidden=true;openProjDialog(name);}),
@@ -794,7 +1239,7 @@ let projCtx = null;
 function openProjDialog(name) {
   projCtx = name;                                                 // null = new project
   const f = $('#projForm'), info = projects.find(p => p.name === name);
-  $('#projTitle').textContent = name ? `Defaults of "${name}"` : 'New project';
+  $('#projTitle').textContent = name ? `${translateUI('Defaults of')} "${name}"` : translateUI('New project');
   f.name.value = name || ''; f.name.hidden = $('#projNameLbl').hidden = !!name;
   f.name.required = !name;
   f.moon.value = info ? info.moon : 30; f.airmass.value = info ? info.airmass : 1.6; f.phase.value = info?.phase || 'bright';
@@ -830,7 +1275,7 @@ let starCtx = null;
 function openStarDialog(scope, name, t) {
   starCtx = {scope, name, id: t ? t.id : null};
   const f = $('#starForm'), def = projects.find(p => p.name === name) || {moon: 30, airmass: 1.6};
-  $('#starTitle').textContent = (t ? 'Edit target' : 'Add target') + (scope === 'plan' ? ' (plan copy)' : '');
+  $('#starTitle').textContent = translateUI(t ? 'Edit target' : 'Add target') + (scope === 'plan' ? ' '+translateUI('(plan copy)') : '');
   f.name.value = t ? t.name : ''; f.ra.value = t ? t.ra : ''; f.dec.value = t ? t.dec : '';
   f.elements.gmag.value = t?.gmag ?? "";
   f.moon.value = t ? t.moon : def.moon; f.airmass.value = t ? t.airmass : def.airmass; f.phase.value = t?.phase || def.phase || 'bright';
@@ -938,7 +1383,7 @@ const currentPlanSettings = () => plans.find(p => p.name === plan) || {mode:'pla
 function showPlanDialog(isNew=false) {
   createPlanMode=isNew;
   const f=$('#planForm'), p=isNew ? {mode:'plan',exposure_time:1200,delay:120,start_of_observation:'nautical'} : currentPlanSettings();
-  $('#planDlgTitle').textContent=isNew?'New plan':'Defaults of "'+plan+'"';
+  $('#planDlgTitle').textContent=isNew?translateUI('New plan'):translateUI('Defaults of')+' "'+plan+'"';
   $('#planNameLabel').hidden=!isNew; f.elements.plan_name.value='';f.elements.plan_name.required=isNew;
   $('#planActions').hidden=isNew;
   f.elements.mode.value=p.mode;f.elements.exposure_time.value=p.exposure_time;f.elements.apply_exposure.checked=false;
@@ -993,7 +1438,7 @@ let initialAxes = {};
 const CONFIG = {
   responsive: true, displaylogo: false,
   modeBarButtonsToRemove: ['autoScale2d', 'resetScale2d'],
-  modeBarButtonsToAdd: [{name: 'Autoscale', title: 'Restore the initial plot limits',
+  modeBarButtonsToAdd: [{name: 'Autoscale', title: translateUI('Restore the initial plot limits'),
     icon: {width: 16, height: 16, path: 'M1 6V1h5M10 1h5v5M15 10v5h-5M6 15H1v-5M1 1l5 5M15 1l-5 5M15 15l-5-5M1 15l5-5', transform: 'matrix(1 0 0 1 0 0)'},
     click: gd => Plotly.relayout(gd, {...initialAxes})}],
   toImageButtonOptions: {format: 'png', scale: 2, filename: 'obsplan'}
@@ -1006,17 +1451,19 @@ const title = text => ({text, standoff: 6});
 // The legend is on the right when spacious, below the plot on medium sizes,
 // and hidden on very small plots. Target names remain accessible in the plan.
 function legendMode(width) { return width < 570 ? 'hidden' : width < 900 ? 'bottom' : 'right'; }
-function responsiveLayout(mode, isNight) {
+function responsiveLayout(mode, isNight, fisheye=false) {
   const bottom = mode === 'bottom';
   return {
     showlegend: mode !== 'hidden',
     legend: bottom
-      ? {orientation:'h', x:0.5, xanchor:'center', y:-0.28, yanchor:'top',
+      ? {orientation:'h', x:0.5, xanchor:'center', y:fisheye?-0.05:-0.28, yanchor:'top',
          bgcolor:'rgba(0,0,0,0)', font:{size:11}, maxheight:0.18}
-      : {orientation:'v', x:1.18, xanchor:'left', y:0.5, yanchor:'middle',
+      : {orientation:'v', x:fisheye?1.02:1.18, xanchor:'left', y:0.5, yanchor:'middle',
          bgcolor:'rgba(0,0,0,0)', font:{size:12}, maxheight:0.9},
-    margin: {l:48, r: mode==='right' ? (isNight ? 285 : 250) : 55,
-             t:isNight ? 105 : 65, b:bottom ? 115 : 65}
+    margin: fisheye
+      ? {l:10, r:mode==='right'?126:10, t:26, b:bottom?65:8}
+      : {l:48, r:mode==='right'?(isNight?285:250):55,
+         t:isNight?105:65, b:bottom?115:65}
   };
 }
 const common = (th, text, margin) => ({
@@ -1036,9 +1483,10 @@ function updateResponsivePlot() {
   const mode=legendMode(width);
   if(mode!==currentLegendMode) {
     currentLegendMode=mode;
-    Plotly.relayout(plot, responsiveLayout(mode, currentLayout.meta?.nightPlot===true));
+    Plotly.relayout(plot, responsiveLayout(mode, currentLayout.meta?.nightPlot===true,
+      currentLayout.meta?.projection==='fisheye')).then(positionWindLink);
   }
-  Plotly.Plots.resize(plot);
+  Plotly.Plots.resize(plot).then(positionWindLink);
 }
 function scheduleResponsivePlot() {
   if(plotLayoutPending)return;
@@ -1079,6 +1527,8 @@ function attachNightTitleHelp(help) {
 }
 const draw = (traces, layout, nightHelp = null) => {
   $('#plotmsg').hidden = true;
+  $('#windSpeedLink').style.display='none';
+  $('#windStatus').hidden=true;
   // Drop the previous hit area before Plotly updates its SVG title.
   $('#nightTitleHit')?.remove();
   $('#nightTitleTip')?.remove();
@@ -1093,11 +1543,13 @@ const draw = (traces, layout, nightHelp = null) => {
   const mode=legendMode($('#plotbox').getBoundingClientRect().width);
   currentLegendMode=mode;
   const isNight=!!nightHelp || layout.meta?.nightPlot===true;
-  currentLayout={...layout, meta:{...(layout.meta||{}), nightPlot:isNight}, ...responsiveLayout(mode,isNight)};
+  currentLayout={...layout, meta:{...(layout.meta||{}), nightPlot:isNight},
+    ...responsiveLayout(mode,isNight,layout.meta?.projection==='fisheye')};
   return Plotly.react('plot', plotTraces, currentLayout, CONFIG).then(() => {
     const plotNode=$('#plot');
     if(!plotNode._skyClickWired){plotNode.on('plotly_click',onTargetPlotClick);plotNode._skyClickWired=true;}
-    attachNightTitleHelp(nightHelp);
+    attachNightTitleHelp(nightHelp?translateHtmlInfo(nightHelp):null);
+    positionWindLink();
     scheduleResponsivePlot();
   });
 };
@@ -1113,6 +1565,23 @@ const utcMs=s=>Date.parse(s.replace(' ','T')+'Z');
 const isoUTC=ms=>new Date(ms).toISOString().slice(0,19).replace('T',' ');
 const hmUTC=ms=>new Date(ms).toISOString().slice(11,16);
 let lastScheduleRange=null;
+// The time menu sets a clock time within the plotted night, not today's date.
+// Use only UTC fields: local timezone and daylight saving must never enter the calculation.
+function currentUtcInNight(range, now=new Date()) {
+  if(!range || !Number.isFinite(range.start) || !Number.isFinite(range.end) || range.end<range.start)return null;
+  const instant=now.getTime();
+  if(!Number.isFinite(instant))return null;
+  if(instant>=range.start && instant<=range.end)return instant;
+  const dayMs=86400000;
+  const clockMs=(((now.getUTCHours()*60+now.getUTCMinutes())*60+now.getUTCSeconds())*1000+now.getUTCMilliseconds());
+  // Find the occurrence of this UTC clock time in the selected window,
+  // including a night that extends into the next UTC calendar day.
+  const first=Math.ceil((range.start-clockMs)/dayMs);
+  const last=Math.floor((range.end-clockMs)/dayMs);
+  if(first>last)return null;
+  const day=Math.max(first,Math.min(last,Math.round((instant-clockMs)/dayMs)));
+  return day*dayMs+clockMs;
+}
 function setScheduleStart(ms){scheduleStartOverride=ms;if(lastData?.kind==='night')renderPlot(lastData);}
 function addScheduleBlocks(d,traces,th){
   const times=d.t.map(utcMs),start=times[0],end=times.at(-1);
@@ -1122,7 +1591,7 @@ function addScheduleBlocks(d,traces,th){
   let current=Math.max(start,Math.min(end,scheduleStartOverride??defaultStart));
   lastScheduleRange={start,end,defaultStart};
   const slider=$('#scheduleStart');slider.value=Math.round((current-start)/(end-start)*1000);
-  $('#scheduleTime').textContent=hmUTC(current)+' UTC'+(!event?' (twilight unavailable)':'');
+  $('#scheduleTime').textContent=hmUTC(current)+' UTC'+(!event?' ('+plotText('twilight unavailable')+')':'');
   $('#scheduleBar').hidden=false;
   d.schedule_shapes=[]; d.schedule_blocks=[];
   const valueAt=(arr,t)=>{
@@ -1184,7 +1653,16 @@ function valueAtLocal(arr,t,strings){
 $('#scheduleStart').oninput=e=>{if(lastScheduleRange){const r=lastScheduleRange;setScheduleStart(r.start+(r.end-r.start)*Number(e.target.value)/1000);}};
 $('#scheduleStart').onkeydown=e=>{if(e.code==='Space'){e.preventDefault();$('#scheduleTimeDlg').showModal();}};
 $('#scheduleChoose').onclick=()=>$('#scheduleTimeDlg').showModal();
-$('#timeNow').onclick=()=>{setScheduleStart(Date.now());$('#scheduleTimeDlg').close();};
+$('#timeNow').onclick=()=>{
+  if(!lastScheduleRange)return;
+  const now=new Date(),ms=currentUtcInNight(lastScheduleRange,now);
+  if(ms===null){
+    $('#scheduleTimeDlg').close();
+    toast(`${translateUI('Current UTC time is outside the selected night')}: ${hmUTC(now.getTime())} UTC`);
+    return;
+  }
+  setScheduleStart(ms);$('#scheduleTimeDlg').close();
+};
 $('#timeDefault').onclick=()=>{scheduleStartOverride=null;renderPlot(lastData);$('#scheduleTimeDlg').close();};
 $('#timeApply').onclick=()=>{if(!lastScheduleRange||!$('#timeExact').value)return;
  const date=isoUTC(lastScheduleRange.start).slice(0,10),value=$('#timeExact').value;
@@ -1193,9 +1671,8 @@ $('#timeApply').onclick=()=>{if(!lastScheduleRange||!$('#timeExact').value)retur
 
 // The full-band schedule popup combines the ordinary night-plot values at the
 // cursor's UTC time with the observing-block metadata and whole-block status.
-function scheduleInfoAt(d, block, ms) {
+function scheduleInfoAt(d, block, ms, ts=d.t.map(utcMs)) {
   const tg=d.targets[block.index];
-  const ts=d.t.map(utcMs);
   const interp=values=>{
     if(!values||!values.length||ms<ts[0]||ms>ts[ts.length-1]) return null;
     let lo=0,hi=ts.length-1;
@@ -1212,7 +1689,7 @@ function scheduleInfoAt(d, block, ms) {
   const fixed=(value,digits,unit='')=>value==null?'—':`${value.toFixed(digits)}${unit}`;
   const safe=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const alt=interp(tg.alt), air=interp(tg.airmass), sep=interp(tg.moon_sep);
-  const lines=[`<b>${block.good?'':'⚠️ '}${safe(tg.name)}</b>`,
+  const lines=[`<b>${block.good?'':'⚠️ '}__SKY_TARGET_NAME__</b>`,
     `${hmUTC(ms)} UTC`, `Altitude ${fixed(alt,1,'°')}`,
     `Airmass ${fixed(air,2)}`,
     `Moon dis. ${fixed(sep,0,'°')} (limit ${fixed(tg.moon_limit,0,'°')})`];
@@ -1234,7 +1711,7 @@ function scheduleInfoAt(d, block, ms) {
     `End ${hmUTC(block.finish)} UTC`,
     `Exposure ${block.exp} s × ${block.count}`, `Delay ${block.delay/60} min`,
     `<b>Whole block:</b> ${block.good?'All observing limits satisfied':block.reasons.map(safe).join('<br>')}`);
-  return translateHtmlInfo(lines.join('<br>'));
+  return translateHtmlInfo(lines.join('<br>')).replace('__SKY_TARGET_NAME__',safe(tg.name));
 }
 
 // Full-height schedule hover is the only hover in schedule mode.
@@ -1279,43 +1756,49 @@ plotHoverRoot.addEventListener('mousemove',e=>{
 });
 plotHoverRoot.addEventListener('mouseleave',()=>document.getElementById('blockHover')?.remove());
 
+// The two night projections use identical observing-limit classifications and hover values.
+function nightTargetMetadata(d,tg,i,th) {
+  const color=th.palette[i%th.palette.length], n=tg.alt.length;
+  const phaseBad = d.moon_phase.map(v => v !== null && v > tg.phase_limit + 1e-8);
+  const moonBad = tg.near_moon;
+  const moonVelBad = tg.blocked_moon_velocity || Array(n).fill(false);
+  const telluricBad = tg.blocked_telluric_velocity || Array(n).fill(false);
+  const airBad = tg.airmass.map(v => v !== null && v > tg.airmass_limit);
+  const above = tg.alt.map(v => v !== null);
+  const cross = above.map((up, k) => up && (moonBad[k] || phaseBad[k] || moonVelBad[k] || telluricBad[k]));
+  const faint = above.map((up, k) => up && !cross[k] && airBad[k]);
+  const valid = above.some((up, k) => up && !moonBad[k] && !phaseBad[k] && !moonVelBad[k] && !telluricBad[k] && !airBad[k]);
+  const label = valid ? tg.name : `⚠️ ${tg.name}`;
+  const cd = d.t.map((_, k) => {
+    const violations = [];
+    if (moonBad[k]) violations.push('Too close to the Moon');
+    if (phaseBad[k]) violations.push('Moon phase limit violated');
+    if (airBad[k]) violations.push('Airmass limit violated');
+    if (moonVelBad[k]) violations.push('Moon vel. limit violated');
+    if (telluricBad[k]) violations.push('Telluric vel. limit violated');
+    return [tg.name, tg.airmass[k], tg.moon_sep[k], tg.moon_limit,
+            translateHtmlInfo(!above[k] ? 'Below horizon' : (violations.length ? violations.join('<br>') : 'All observing limits satisfied')),
+            tg.radial_velocity == null && tg.moon_velocity?.[k] != null ? `<br>Moon vel. ${tg.moon_velocity[k].toFixed(1)} km/s` : '',
+            tg.radial_velocity != null && tg.moon_velocity_difference?.[k] != null
+              ? `<br>delta Moon vel. ${tg.moon_velocity_difference[k].toFixed(1)} km/s${tg.moon_velocity_limit == null ? '' : ` (limit: ${Number(tg.moon_velocity_limit).toFixed(1)} km/s)`}` : '',
+            tg.radial_velocity != null && tg.telluric_velocity_limit != null && tg.telluric_velocity_difference?.[k] != null
+              ? `<br>delta Telluric vel. ${tg.telluric_velocity_difference[k].toFixed(1)} km/s (limit: ${Number(tg.telluric_velocity_limit).toFixed(1)} km/s)` : ''];
+  }).map(values=>values.map((v,i)=>i>=5&&typeof v==='string'?translateHtmlInfo(v):v));
+  const hoverlabel = {bgcolor: mutedHoverColour(color), font: {color: '#ffffff'}};
+  return {color,n,above,cross,faint,airBad,valid,label,cd,hoverlabel};
+}
+
 function renderNight(d, th) {
   const HOVER = '<b>%{customdata[0]}</b><br>%{x|%H:%M} UTC<br>Altitude %{y:.1f}°<br>Airmass %{customdata[1]:.2f}' +
                 '<br>Moon dis. %{customdata[2]:.0f}° (limit %{customdata[3]:.0f}°)' +
                 '%{customdata[5]}' +
                 '%{customdata[6]}%{customdata[7]}<br>%{customdata[4]}<extra></extra>';
   const moonPct = Math.round(d.moon_phase[Math.floor(d.moon_phase.length / 2)]);
-  const traces = [{x: d.t, y: d.moon_alt, name: `Moon (${moonPct}%)`, mode: 'lines', line: {color: th.moon, dash: 'dash', width: 2},
-                   customdata: d.moon_phase, hovertemplate: 'Moon<br>%{x|%H:%M} UTC<br>Altitude %{y:.1f}°<br>Illuminated %{customdata:.1f}%<extra></extra>'}];
+  const traces = [{x: d.t, y: d.moon_alt, name: `${plotText('Moon')} (${moonPct}%)`, mode: 'lines', line: {color: th.moon, dash: 'dash', width: 2},
+                   customdata: d.moon_phase, hovertemplate: translateHtmlInfo('Moon<br>%{x|%H:%M} UTC<br>Altitude %{y:.1f}°<br>Illuminated %{customdata:.1f}%<extra></extra>')}];
   d.targets.forEach((tg, i) => {
-    const color = th.palette[i % th.palette.length], n = tg.alt.length;
-    const phaseBad = d.moon_phase.map(v => v !== null && v > tg.phase_limit + 1e-8);
-    const moonBad = tg.near_moon;
-    const moonVelBad = tg.blocked_moon_velocity || Array(n).fill(false);
-    const telluricBad = tg.blocked_telluric_velocity || Array(n).fill(false);
-    const airBad = tg.airmass.map(v => v !== null && v > tg.airmass_limit);
-    const above = tg.alt.map(v => v !== null);
-    const cross = above.map((up, k) => up && (moonBad[k] || phaseBad[k] || moonVelBad[k] || telluricBad[k]));
-    const faint = above.map((up, k) => up && !cross[k] && airBad[k]);
-    const valid = above.some((up, k) => up && !moonBad[k] && !phaseBad[k] && !moonVelBad[k] && !telluricBad[k] && !airBad[k]);
-    const label = valid ? tg.name : `⚠️ ${tg.name}`;
-    const cd = d.t.map((_, k) => {
-      const violations = [];
-      if (moonBad[k]) violations.push('Too close to the Moon');
-      if (phaseBad[k]) violations.push('Moon phase limit violated');
-      if (airBad[k]) violations.push('Airmass limit violated');
-      if (moonVelBad[k]) violations.push('Moon vel. limit violated');
-      if (telluricBad[k]) violations.push('Telluric vel. limit violated');
-      return [tg.name, tg.airmass[k], tg.moon_sep[k], tg.moon_limit,
-              translateHtmlInfo(!above[k] ? 'Below horizon' : (violations.length ? violations.join('<br>') : 'All observing limits satisfied')),
-              tg.radial_velocity == null && tg.moon_velocity?.[k] != null ? `<br>Moon vel. ${tg.moon_velocity[k].toFixed(1)} km/s` : '',
-              tg.radial_velocity != null && tg.moon_velocity_difference?.[k] != null
-                ? `<br>delta Moon vel. ${tg.moon_velocity_difference[k].toFixed(1)} km/s${tg.moon_velocity_limit == null ? '' : ` (limit: ${Number(tg.moon_velocity_limit).toFixed(1)} km/s)`}` : '',
-              tg.radial_velocity != null && tg.telluric_velocity_limit != null && tg.telluric_velocity_difference?.[k] != null
-                ? `<br>delta Telluric vel. ${tg.telluric_velocity_difference[k].toFixed(1)} km/s (limit: ${Number(tg.telluric_velocity_limit).toFixed(1)} km/s)` : ''];
-    }).map(values=>values.map((v,i)=>i>=5&&typeof v==='string'?translateHtmlInfo(v):v));
+    const {color,n,above,cross,faint,airBad,valid,label,cd,hoverlabel} = nightTargetMetadata(d,tg,i,th);
     const pick = keep => tg.alt.map((v, k) => keep[k] ? v : null);
-    const hoverlabel = {bgcolor: mutedHoverColour(color), font: {color: '#ffffff'}};
     traces.push({x: d.t, y: pick(above.map((up, k) => up && !cross[k] && !airBad[k])), name: label,
                  legendgroup: tg.name + i, mode: 'lines', line: {color, width: 2.5},
                  customdata: cd, hoverlabel, hovertemplate: translateHtmlInfo(HOVER), skyTargetIndex:i});
@@ -1349,46 +1832,279 @@ function renderNight(d, th) {
   const ghost = o => ({mode: 'markers', marker: {opacity: 0}, hoverinfo: 'skip', showlegend: false, ...o});
   traces.push(ghost({x: range, y: [0, 0], xaxis: 'x2'}), ghost({x: [range[0]], y: [0], yaxis: 'y2'}));
   draw(traces, {
-    ...common(th, d.title, {l: 48, r: 205, t: 105, b: 65}),
+    ...common(th, localizedPlotTitle(d), {l: 48, r: 205, t: 105, b: 65}),
     meta:{nightPlot:true},
     xaxis: axis(th, {type: 'date', range, tickformat: '%H', dtick: 3600000, tick0: d.t[0].slice(0, 13) + ':00:00', ...grid(th),
-                     title: title(`Time from ${d.date} [UTC]`)}),
+                     title: title(`${plotText('Time from')} ${d.date} [UTC]`)}),
     xaxis2: axis(th, {overlaying: 'x', side: 'top', type: 'date', range, tickmode: 'array', tickvals: d.lst_t, ticktext: d.lst,
                       title: title('LST'), showgrid: false}),
-    yaxis: axis(th, {range: [0, 90], dtick: 10, title: title('Altitude [°]'), ...grid(th)}),
+    yaxis: axis(th, {range: [0, 90], dtick: 10, title: title(`${plotText('Altitude')} [°]`), ...grid(th)}),
     yaxis2: axis(th, {overlaying: 'y', side: 'right', range: [0, 90], tickmode: 'array', tickvals: ticks,
-                      ticktext: ticks.map(a => (1 / Math.sin(a * Math.PI / 180)).toFixed(2)), title: title('Airmass'), showgrid: false}),
+                      ticktext: ticks.map(a => (1 / Math.sin(a * Math.PI / 180)).toFixed(2)), title: title(plotText('Airmass')), showgrid: false}),
     shapes: [...d.twilight.map(s => ({type: 'rect', xref: 'x', yref: 'paper', x0: s.x0, x1: s.x1, y0: 0, y1: 1,
                                   fillcolor: th.shade(s.alpha), line: {width: 0}, layer: 'below'})), ...(d.schedule_shapes||[])],
   }, d.night_help);
 }
 
+
+// Zenithal equidistant projection: the horizon is the unit circle, zenith (0,0),
+// North at the top, East on the left (as on an upward-looking sky map).
+function skyPoint(alt,az,horizon=0) {
+  if (alt==null || az==null || !Number.isFinite(alt) || !Number.isFinite(az) || alt<horizon) return null;
+  const r=(90-Math.min(90,alt))/(90-horizon), a=az*Math.PI/180;
+  return {x:-r*Math.sin(a), y:r*Math.cos(a)};
+}
+// Interpolate in Cartesian projection space, avoiding jumps at azimuth 0/360.
+function skySamples(alt,az,times,horizon=0) {
+  return times.map((t,k)=>({t,ms:utcMs(t),...(skyPoint(alt[k],az?.[k],horizon)||{x:null,y:null})}));
+}
+function skyAt(samples,ms) {
+  if(!samples.length||ms<samples[0].ms||ms>samples.at(-1).ms)return null;
+  let lo=0,hi=samples.length-1;
+  while(hi-lo>1){const mid=(lo+hi)>>1;if(samples[mid].ms<=ms)lo=mid;else hi=mid;}
+  if(samples[lo].x==null||samples[hi].x==null) return null;
+  const u=(ms-samples[lo].ms)/(samples[hi].ms-samples[lo].ms);
+  return {x:samples[lo].x+(samples[hi].x-samples[lo].x)*u,
+          y:samples[lo].y+(samples[hi].y-samples[lo].y)*u,ms};
+}
+// Clip the trajectory to a time window, separating any below-horizon gaps.
+function skyWindow(samples,begin,finish) {
+  const first=Math.max(samples[0].ms,begin),last=Math.min(samples.at(-1).ms,finish);
+  if(last<=first)return [];
+  const points=[skyAt(samples,first),...samples.filter(p=>p.ms>first&&p.ms<last),skyAt(samples,last)];
+  const runs=[],run=[];
+  for(const p of points){
+    if(p&&p.x!=null&&p.y!=null)run.push(p);
+    else if(run.length){if(run.length>=2)runs.push([...run]);run.length=0;}
+  }
+  if(run.length>=2)runs.push(run);
+  return runs;
+}
+// A path-aligned coloured region replaces a rectangular time/altitude band.
+// It remains attached to the target's actual position through the night.
+function skyRibbon(points,width,color,opacity) {
+  const left=[],right=[];
+  for(let i=0;i<points.length;i++){
+    const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)];
+    const len=Math.hypot(b.x-a.x,b.y-a.y)||1;
+    const nx=-(b.y-a.y)/len*width,ny=(b.x-a.x)/len*width;
+    left.push([points[i].x+nx,points[i].y+ny]);
+    right.push([points[i].x-nx,points[i].y-ny]);
+  }
+  const polygon=[...left,...right.reverse(),left[0]];
+  return {x:polygon.map(p=>p[0]),y:polygon.map(p=>p[1]),mode:'lines',fill:'toself',
+    line:{width:0},fillcolor:color,opacity,hoverinfo:'skip',showlegend:false};
+}
+function twilightRibbonColor(th,alpha) {
+  // A gentle tint keeps the twilight region visible without hiding the track.
+  const rgba = th===THEMES.dark ? '130,160,190' : '65,82,120';
+  return `rgba(${rgba},${Math.max(.04,Math.min(.24,alpha*.5)).toFixed(2)})`;
+}
+// Optional current weather at the observatory; not a wind forecast for the selected date.
+let windWeather=null,windWeatherSite=null,windFetchedAt=0,windRequestSite=null,windRequestSerial=0,windError=null;
+const windBearingPoint=(az,r)=>({x:-r*Math.sin(az*Math.PI/180),y:r*Math.cos(az*Math.PI/180)});
+function fetchFisheyeWind(site){
+  if(!showFisheyeWind || !site)return;
+  if(windRequestSite===site)return;
+  if(windWeatherSite===site && Date.now()-windFetchedAt<10*60*1000)return;
+  const serial=++windRequestSerial;windRequestSite=site;windWeather=null;windError=null;
+  api('/api/wind?'+new URLSearchParams({location:site}))
+    .then(result=>{
+      if(serial!==windRequestSerial)return;
+      windWeatherSite=site;windWeather=result;windFetchedAt=Date.now();windError=null;
+    }).catch(e=>{
+      if(serial!==windRequestSerial)return;
+      windError=e.message;windWeather=null;
+      // Do not issue repeated failing requests on each plot redraw.
+      windWeatherSite=site;windFetchedAt=Date.now();
+    }).finally(()=>{
+      if(serial!==windRequestSerial)return;
+      windRequestSite=null;
+      if(showFisheyeWind && lastData?.kind==='night' && kind==='night'
+          && nightView==='fisheye' && lastData.location===site)renderPlot(lastData);
+    });
+}
+function positionWindLink(){
+  const link=$('#windSpeedLink'),status=$('#windStatus'),plot=$('#plot');
+  link.style.display='none';status.hidden=true;
+  if(!showFisheyeWind || kind!=='night' || nightView!=='fisheye' || lastData?.kind!=='night')return;
+  if(windError && windWeatherSite===lastData.location){
+    status.hidden=false;status.textContent=translateUI('Wind unavailable');status.title=windError;
+  }
+  if(!windWeather || windWeatherSite!==lastData.location || !plot._fullLayout)return;
+  const {xaxis,yaxis}=plot._fullLayout;
+  if(!xaxis?.l2p || !yaxis?.l2p)return;
+  const point=windBearingPoint(windWeather.from_degrees,1.21);
+  const x=xaxis._offset+xaxis.l2p(point.x),y=yaxis._offset+yaxis.l2p(point.y);
+  if(!Number.isFinite(x)||!Number.isFinite(y))return;
+  link.style.left=x+'px';link.style.top=y+'px';link.textContent=windWeather.speed_ms.toFixed(1)+' m/s';
+  link.href=windWeather.source_url||'https://open-meteo.com/en/docs';
+  link.title=`${translateUI('Current wind')} (10 m, ${windWeather.from_degrees.toFixed(0)}° ${plotText('FROM')}, ${windWeather.time_utc} UTC) — Open-Meteo`;
+  link.style.display='block';
+}
+// Preserve the usual large Fisheye circle whenever the wind overlay fits.
+// Only expand the square axes for bearings near a cardinal edge, allowing
+// room for both the arrow tail and the clickable speed label.
+function fisheyePlotRadius(location) {
+  const normal=1.11;
+  if(!showFisheyeWind || !windWeather || windWeatherSite!==location)return normal;
+  const arrow=windBearingPoint(windWeather.from_degrees,1.16);
+  const label=windBearingPoint(windWeather.from_degrees,1.21);
+  // Text is centered on the label position. Approximate its footprint in sky
+  // coordinates, in addition to the geometric extent of the blue arrow.
+  const needed=Math.max(Math.abs(arrow.x)+.02,Math.abs(arrow.y)+.02,
+                        Math.abs(label.x)+.105,Math.abs(label.y)+.04);
+  return needed<=normal ? normal : needed+.025;
+}
+function renderFisheye(d,th) {
+  // Reuse the same night response and schedule calculations, not a separate backend.
+  installScheduleHover(null); // Altitude's full-height time-band hit area is not meaningful on a sky map.
+  if(showFisheyeWind)fetchFisheyeWind(d.location);
+  const isSchedule=d.plan_settings?.mode==='schedule';
+  if(isSchedule)addScheduleBlocks(d,[],th);
+  const moonPct=Math.round(d.moon_phase[Math.floor(d.moon_phase.length/2)]);
+  const moon=skySamples(d.moon_alt,d.moon_az,d.t,fisheyeHorizon);
+  const traces=[];
+  const moonHover=translateHtmlInfo('Moon<br>%{customdata[0]} UTC<br>Altitude %{customdata[1]:.1f}°<br>Azimuth %{customdata[2]:.1f}°<br>Illuminated %{customdata[3]:.1f}%<extra></extra>');
+  // Put twilight shading below the target and Moon traces, as in the altitude view.
+  for(const tg of d.targets){
+    const points=skySamples(tg.alt,tg.az,d.t,fisheyeHorizon);
+    for(const segment of d.twilight){
+      for(const run of skyWindow(points,utcMs(segment.x0),utcMs(segment.x1)))
+        traces.push(skyRibbon(run,.03,twilightRibbonColor(th,segment.alpha),1));
+    }
+  }
+  if(isSchedule){
+    for(const b of d.schedule_blocks){
+      const tg=d.targets[b.index],points=skySamples(tg.alt,tg.az,d.t,fisheyeHorizon);
+      for(const run of skyWindow(points,b.begin,b.finish))
+        traces.push(skyRibbon(run,.038,th.palette[b.index%th.palette.length],.27));
+    }
+  }
+  traces.push({x:moon.map(p=>p.x),y:moon.map(p=>p.y),name:`${plotText('Moon')} (${moonPct}%)`,
+    mode:'lines',line:{color:th.moon,dash:'dash',width:2},opacity:isSchedule?.30:1,
+    customdata:d.t.map((t,k)=>[t.slice(11,16),d.moon_alt[k],d.moon_az[k],d.moon_phase[k]]),
+    hoverlabel:{bgcolor:mutedHoverColour(th.moon),font:{color:'#fff'}},
+    hovertemplate:isSchedule?undefined:moonHover,hoverinfo:isSchedule?'skip':undefined});
+  const hover=translateHtmlInfo('<b>%{customdata[0]}</b><br>%{customdata[8]} UTC<br>Altitude %{customdata[9]:.1f}°<br>Azimuth %{customdata[10]:.1f}°<br>Airmass %{customdata[1]:.2f}<br>Moon dis. %{customdata[2]:.0f}° (limit %{customdata[3]:.0f}°)%{customdata[5]}%{customdata[6]}%{customdata[7]}<br>%{customdata[4]}<extra></extra>');
+  d.targets.forEach((tg,i)=>{
+    const {color,n,above,cross,faint,label,cd,hoverlabel}=nightTargetMetadata(d,tg,i,th);
+    const points=skySamples(tg.alt,tg.az,d.t,fisheyeHorizon);
+    const values=cd.map((v,k)=>[...v,d.t[k].slice(11,16),tg.alt[k],tg.az?.[k]]);
+    const shown=keep=>points.map((p,k)=>keep[k]?p.x:null);
+    const ys=keep=>points.map((p,k)=>keep[k]?p.y:null);
+    const accepted=above.map((up,k)=>up&&!cross[k]&&!faint[k]);
+    const legendgroup=tg.name+i;
+    const base={name:label,legendgroup,customdata:values,hoverlabel,
+      hovertemplate:isSchedule?undefined:hover,hoverinfo:isSchedule?'skip':undefined,skyTargetIndex:i};
+    if(isSchedule){
+      const block=d.schedule_blocks.find(b=>b.index===i);
+      if(block&&!block.good)base.name=`⚠️ ${tg.name}`;
+    }
+    traces.push({...base,x:shown(accepted),y:ys(accepted),mode:'lines+markers',
+      marker:{size:4,color,opacity:.8},line:{color,width:2.5},opacity:isSchedule?.16:1});
+    if(faint.some(Boolean)){
+      const touch=faint.map((bad,k)=>bad||(above[k]&&!cross[k]&&
+                 ((k>0&&faint[k-1])||(k<n-1&&faint[k+1]))));
+      traces.push({...base,x:shown(touch),y:ys(touch),showlegend:false,
+        mode:'lines+markers',marker:{size:3,color},line:{color,width:2},opacity:isSchedule?.05:FAINT});
+    }
+    if(cross.some(Boolean))traces.push({...base,x:shown(cross),y:ys(cross),showlegend:false,
+      mode:'markers',marker:{symbol:'x',size:7,color,opacity:.42},opacity:isSchedule?.16:1});
+  });
+  if(isSchedule){
+    d.schedule_blocks.forEach(b=>{
+      const tg=d.targets[b.index],samples=skySamples(tg.alt,tg.az,d.t,fisheyeHorizon);
+      const color=th.palette[b.index%th.palette.length];
+      const sampleTimes=d.t.map(utcMs); // Parse once for the entire scheduled track.
+      for(const run of skyWindow(samples,b.begin,b.finish)){
+        // Plotly escapes HTML supplied via customdata interpolation. Give each
+        // sample an actual hover template so <br>/<b> render, and use a text
+        // divider (SVG tooltips do not support HTML <hr> elements).
+        const hoverTemplates=run.map(p=>scheduleInfoAt(d,b,p.ms,sampleTimes)
+          .replace(/<hr\b[^>]*>/gi,'<br>──────────────<br>') + '<extra></extra>');
+        traces.push({x:run.map(p=>p.x),y:run.map(p=>p.y),name:`${tg.name} ${translateUI('Schedule')}`,
+          showlegend:false,mode:'lines+markers',line:{color,width:5},marker:{size:6,color},
+          hovertemplate:hoverTemplates,
+          hoverlabel:{bgcolor:mutedHoverColour(color),font:{color:'#fff'}},skyTargetIndex:b.index});
+      }
+    });
+  }
+  const shapes=[{type:'circle',xref:'x',yref:'y',x0:-1,y0:-1,x1:1,y1:1,
+    fillcolor:th.plot,line:{color:th.axis,width:2},layer:'below'}];
+  for(const altitude of [30,60].filter(altitude=>altitude>fisheyeHorizon)){
+    const r=(90-altitude)/(90-fisheyeHorizon);
+    shapes.push({type:'circle',xref:'x',yref:'y',x0:-r,y0:-r,x1:r,y1:r,
+      line:{color:th.grid,width:1,dash:'dot'},layer:'below'});
+  }
+  // Faint N–S meridian and E–W great-circle projection, behind the tracks.
+  // Use the same dotted grid style as the 30°/60° altitude circles.
+  for(const [x0,y0,x1,y1] of [[0,-1,0,1],[-1,0,1,0]]){
+    shapes.push({type:'line',xref:'x',yref:'y',x0,y0,x1,y1,
+      line:{color:th.grid,width:1,dash:'dot'},opacity:.62,layer:'below'});
+  }
+  const annotations=[
+    ...[['N',0,0],['E',-1,90],['S',0,180],['W',1,270]].map(([text,x,az])=>{
+      const bearing=showFisheyeWind && windWeatherSite===d.location ? windWeather?.from_degrees : null;
+      const nearby=bearing!=null && Math.abs(((bearing-az+540)%360)-180)<13;
+      // Move only the obstructed compass label slightly inward; preserve azimuth.
+      const r=nearby?.91:1.085, pos=windBearingPoint(az,r);
+      return {text,x:pos.x,y:pos.y,xref:'x',yref:'y',showarrow:false,font:{size:14,color:th.text}};
+    }),
+    ...[30,60].filter(a=>a>fisheyeHorizon).map(a=>({text:`${a}°`,x:0.035,y:(90-a)/(90-fisheyeHorizon),xref:'x',yref:'y',showarrow:false,
+      font:{size:10,color:th.axis},xanchor:'left',yanchor:'bottom'})),
+    {text:translateUI('Zenith'),x:0.02,y:0.03,xref:'x',yref:'y',showarrow:false,font:{size:10,color:th.axis},xanchor:'left'},
+    {text:`${fisheyeHorizon}°`,x:0.11,y:0.97,xref:'x',yref:'y',showarrow:false,font:{size:10,color:th.axis}}
+  ];
+  const showWindArrow=showFisheyeWind && windWeather && windWeatherSite===d.location;
+  if(showWindArrow){
+    const source=windBearingPoint(windWeather.from_degrees,1.16);
+    const tip=windBearingPoint(windWeather.from_degrees,1.025);
+    annotations.push({x:tip.x,y:tip.y,ax:source.x,ay:source.y,
+      xref:'x',yref:'y',axref:'x',ayref:'y',showarrow:true,
+      arrowhead:3,arrowsize:1.45,arrowwidth:5,arrowcolor:'#338dff',text:''});
+  }
+  const radius=fisheyePlotRadius(d.location);
+  draw(traces,{
+    ...common(th,`${localizedPlotTitle(d)} — ${translateUI('Fisheye')}`,{l:48,r:205,t:105,b:65}),
+    meta:{nightPlot:true,projection:'fisheye'},
+    plot_bgcolor:th.paper,
+    xaxis:{range:[-radius,radius],showgrid:false,zeroline:false,showticklabels:false,showline:false,
+      fixedrange:false,constrain:'domain'},
+    yaxis:{range:[-radius,radius],showgrid:false,zeroline:false,showticklabels:false,showline:false,
+      scaleanchor:'x',scaleratio:1,constrain:'domain'},
+    shapes,annotations,hoverdistance:25,
+  },d.night_help);
+}
+
 function renderYear(d, th) {
-  const traces = [{x: d.dates, y: d.night, name: d.period_label, mode: 'lines', line: {color: th.night, dash: 'dash', width: 1.5},
-                   hovertemplate: '%{fullData.name}<br>%{x|%d %b %Y}<br>%{y:.1f} h<extra></extra>'}];
+  const dates=d.dates.map(plotDate),months=monthTicks(d);
+  const traces = [{x: d.dates, y: d.night, name: localizedPeriodLabel(d.period_label), mode: 'lines', line: {color: th.night, dash: 'dash', width: 1.5},
+                   customdata:dates,hovertemplate: '%{fullData.name}<br>%{customdata}<br>%{y:.1f} h<extra></extra>'}];
   d.targets.forEach((tg, i) => {
     const color = th.palette[i % th.palette.length];
     const unobservable = tg.hours.every(h => h == null || h <= 0);
     const displayName = (unobservable ? '⚠️ ' : '') + tg.name + (tg.duplicate_count > 1 ? ` (×${tg.duplicate_count})` : '');
     const hoverlabel = {bgcolor: mutedHoverColour(color), font: {color: '#ffffff'}};
-    const cd = d.dates.map((_, k) => [tg.moon_limit, tg.airmass_limit, tg.phase,
-      tg.phase_limit, tg.violations?.[k] || (tg.hours?.[k] === 0 && d.night?.[k] > 0 ? 'No observable time (target below horizon or limits exceeded)' : 'All observing limits satisfied')]);
-    const hovertemplate = '<b>%{fullData.name}</b><br>Night of %{x|%d %b %Y}<br>%{y:.1f} h observable' +
-      '<br>limits: Moon dis. ≥%{customdata[0]:.0f}°, airmass ≤%{customdata[1]:.2f}, phase %{customdata[2]} (≤%{customdata[3]:.0f}%)' +
-      '<br>%{customdata[4]}<extra></extra>';
+    const cd = d.dates.map((_, k) => [tg.moon_limit, tg.airmass_limit, plotText(tg.phase),
+      tg.phase_limit, translateHtmlInfo(tg.violations?.[k] || (tg.hours?.[k] === 0 && d.night?.[k] > 0 ? 'No observable time (target below horizon or limits exceeded)' : 'All observing limits satisfied')),dates[k]]);
+    const hovertemplate = translateHtmlInfo('<b>%{fullData.name}</b><br>Night of %{customdata[5]}<br>%{y:.1f} h observable' +
+      '<br>limits: Moon dis. ≥%{customdata[0]:.0f}°, Airmass ≤%{customdata[1]:.2f}, phase %{customdata[2]} (≤%{customdata[3]:.0f}%)' +
+      '<br>%{customdata[4]}<extra></extra>');
     traces.push({x: d.dates, y: tg.hours, name: displayName, mode: 'lines',
       line: {color, width: 2.5}, customdata: cd, hoverlabel, hovertemplate, skyTargetIndex:i});
   });
   draw(traces, {
-    ...common(th, d.title, {l: 48, r: 175, t: 65, b: 65}),
+    ...common(th, localizedPlotTitle(d), {l: 48, r: 175, t: 65, b: 65}),
     meta:{nightPlot:false},
-    xaxis: axis(th, {type: 'date', range: [d.dates[0], d.dates[d.dates.length - 1]], dtick: 'M1', tickformat: '%b', ticklabelmode: 'period',
-                     title: title('Night starting on'), ...grid(th)}),
-    yaxis: axis(th, {range: [0, Math.max(1, 1.1 * Math.max(...d.night.filter(v => v !== null)))], title: title('Hours'), ...grid(th)}),
+    xaxis: axis(th, {type: 'date', range: [d.dates[0], d.dates[d.dates.length - 1]],
+                     tickmode:'array',tickvals:months.map(m=>m.date),ticktext:months.map(m=>m.label),
+                     title: title(plotText('Month')), mirror:'allticks', ...grid(th)}),
+    yaxis: axis(th, {range: [0, Math.max(1, 1.1 * Math.max(...d.night.filter(v => v !== null)))], title: title(plotText('Hours')), mirror:'allticks', ...grid(th)}),
     shapes: [],
   });
 }
-const renderPlot = d => (d.kind === 'year' ? renderYear : renderNight)(d, THEMES[theme]);
+const renderPlot = d => (d.kind === 'year' ? renderYear : nightView==='fisheye' ? renderFisheye : renderNight)(d, THEMES[theme]);
 
 async function doPlot() {
   if (!plan) return;
@@ -1405,10 +2121,36 @@ async function doPlot() {
 }
 function schedulePlot() { if (hasPlot) { clearTimeout(plotTimer); plotTimer = setTimeout(doPlot, 300); } }
 $('#plotBtn').onclick = doPlot;
-document.querySelectorAll('#seg button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('#seg button').forEach(x => x.classList.toggle('active', x === b));
-  kind = b.dataset.kind; $('#scheduleBar').hidden=kind!=='night'||currentPlanSettings().mode!=='schedule';doPlot();                                // choosing a plot type always draws it
+function syncPlotButtons(){
+  $('#nightBtn').classList.toggle('active',kind==='night');
+  $('#nightArrow').classList.toggle('active',kind==='night');
+  $('#yearBtn').classList.toggle('active',kind==='year');
+  updateNightViewName();
+}
+function hideNightMenu(){ $('#nightViewMenu').hidden=true;$('#nightArrow').setAttribute('aria-expanded','false'); }
+$('#nightBtn').onclick=()=>{
+  hideNightMenu();kind='night';syncPlotButtons();
+  $('#scheduleBar').hidden=currentPlanSettings().mode!=='schedule';
+  doPlot();
+};
+$('#nightArrow').onclick=e=>{
+  e.stopPropagation();const menu=$('#nightViewMenu');menu.hidden=!menu.hidden;
+  $('#nightArrow').setAttribute('aria-expanded',String(!menu.hidden));
+};
+document.querySelectorAll('#nightViewMenu [data-view]').forEach(b=>b.onclick=()=>{
+  const previous=kind;
+  kind='night';nightView=b.dataset.view;store.set('nightView',nightView);
+  hideNightMenu();syncPlotButtons();
+  $('#scheduleBar').hidden=currentPlanSettings().mode!=='schedule';
+  if(lastData?.kind==='night' && previous==='night')renderPlot(lastData);
+  else doPlot();
 });
+$('#yearBtn').onclick=()=>{
+  hideNightMenu();kind='year';syncPlotButtons();$('#scheduleBar').hidden=true;doPlot();
+};
+document.addEventListener('click',e=>{if(!e.target.closest('.night-view-wrap'))hideNightMenu();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hideNightMenu();});
+syncPlotButtons();
 $('#date').value = new Date().toISOString().slice(0, 10);
 $('#date').onchange = $('#location').onchange = schedulePlot;
 
@@ -1416,20 +2158,28 @@ api('/api/locations').then(l => $('#locs').innerHTML = l.map(x => `<option value
 loadProjects().then(loadPlans).catch(e => toast(e.message));
 </script>
 <script>
-// Desktop-only browser session: independent of Firefox/Chromium process detaching.
+// Desktop-only browser session. Background-tab throttling or sleep must not
+// shut down the server; pagehide + a new per-page ID distinguishes refreshes.
 (() => {
   const token = new URLSearchParams(location.search).get('sky_desktop');
   if (!token) return;
   const endpoint = '/api/desktop-session/';
-  const body = JSON.stringify({token});
+  const makePageId = () => globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  let pageId=makePageId();
+  const packet = () => JSON.stringify({token,page_id:pageId});
   const headers = {'Content-Type': 'application/json'};
-  const ping = () => fetch(endpoint + 'ping', {method: 'POST', headers, body, cache: 'no-store'}).catch(() => {});
-  ping();
-  const timer = setInterval(ping, 2000);
+  const ping = () => fetch(endpoint + 'ping', {method:'POST',headers,body:packet(),cache:'no-store'}).catch(() => {});
+  let timer;
+  const connect = () => {if(timer)clearInterval(timer);ping();timer=setInterval(ping,2000);};
+  connect();
+  // A BFCache navigation suspends the page and later restores it without
+  // rerunning scripts. Start heartbeats again when it is restored.
+  window.addEventListener('pageshow',event=>{if(event.persisted){pageId=makePageId();connect();}});
   window.addEventListener('pagehide', () => {
-    clearInterval(timer);
-    navigator.sendBeacon(endpoint + 'close', new Blob([body], {type: 'application/json'}));
-  }, {once: true});
+    clearInterval(timer);timer=null;
+    navigator.sendBeacon(endpoint + 'close', new Blob([packet()], {type:'application/json'}));
+  });
 })();
 </script>
 </body>

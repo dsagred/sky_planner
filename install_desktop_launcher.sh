@@ -20,7 +20,7 @@ cp "$APP_DIR/assets/sky_planner_icon.png" "$ICON_DIR/sky-observation-planner.png
 install_one "$APPS_DIR/sky-observation-planner.desktop"
 install_one "$DESKTOP_DIR/$DESKTOP_FILE_NAME"
 
-# Remove legacy Stop shortcut from earlier installations; v0.6 does not install one.
+# Remove legacy Stop shortcut from earlier installations; the current launcher does not install one.
 rm -f "$APPS_DIR/sky-observation-planner-stop.desktop"
 
 update-desktop-database "$APPS_DIR" >/dev/null 2>&1 || true

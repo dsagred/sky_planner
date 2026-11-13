@@ -198,6 +198,7 @@ class Night:
     dt: np.ndarray              # same as datetimes
     moon: SkyCoord
     moon_alt: np.ndarray        # deg
+    moon_az: np.ndarray         # deg (north through east)
     moon_phase: np.ndarray      # illuminated fraction at each time
     evening: list               # datetimes: sunset, nautical, astronomical dusk (those that exist)
     morning: list               # datetimes: astronomical, nautical dawn, sunrise
@@ -218,10 +219,12 @@ def _compute_night(location, date):
 
     times = Time(start - 1 / 1440 + (end - start) * np.linspace(0, 1, N_PLOT_POINTS), format='jd')
     moon = get_body('moon', times, location)
-    moon_alt = moon.transform_to(AltAz(obstime=times, location=location)).alt.deg
+    moon_altaz = moon.transform_to(AltAz(obstime=times, location=location))
+    moon_alt = moon_altaz.alt.deg
+    moon_az = moon_altaz.az.deg
     # Geocentric phase (same for all observatories); use the Moon at the geocentre.
     phase = _illumination(get_sun(times), get_body("moon", times))
-    return Night(location, times, times.datetime, moon, moon_alt, phase,
+    return Night(location, times, times.datetime, moon, moon_alt, moon_az, phase,
                  list(_datetimes(evening)), list(_datetimes(morning)), list(_datetimes(bounds)), shade)
 
 
@@ -302,17 +305,18 @@ def _coords(sel):
                     frame='icrs', unit=(u.hourangle, u.deg))
 
 
-def _tracks(night, sel):
+def _tracks(night, sel, with_az=False):
     """Altitude [deg], Moon distance [deg] (both (n_targets, n_times)) and the 'too close to the Moon' mask
     for the rows of `sel`; one astropy call for all (target, time) pairs."""
     n, m = len(sel), len(night.times)
     coords = _coords(sel)
     i_star, i_time = np.repeat(np.arange(n), m), np.tile(np.arange(m), n)
     star = coords[i_star]
-    alt = star.transform_to(AltAz(obstime=night.times[i_time], location=night.location)).alt.deg.reshape(n, m)
+    altaz = star.transform_to(AltAz(obstime=night.times[i_time], location=night.location))
+    alt = altaz.alt.deg.reshape(n, m)
     sep = night.moon[i_time].separation(star).deg.reshape(n, m)
     near_moon = sep < (sel['moon'].to_numpy(float) + MOON_MARGIN)[:, None]
-    return alt, sep, near_moon
+    return (alt, sep, near_moon, altaz.az.deg.reshape(n, m)) if with_az else (alt, sep, near_moon)
 
 
 def _draw_targets(ax, night, targetlist):
@@ -743,12 +747,12 @@ def annual(targets, location='lasilla', year=None):
 
 
 def night_data(targetlist=None, date=None, location='lasilla'):
-    """Everything the browser needs for the altitude plot of the selected targets (JSON-serialisable)."""
+    """Nightly altitude and azimuth tracks for the altitude and all-sky views."""
     night = get_night(location, date)
     sel = _selected(targetlist) if targetlist is not None else pd.DataFrame(columns=HEADER)
     targets = []
     if len(sel):
-        alt, sep, near = _tracks(night, sel)
+        alt, sep, near, az = _tracks(night, sel, with_az=True)
         shown = np.where(alt >= 0, alt, np.nan)
         with np.errstate(divide='ignore'):
             airmass = 1 / np.sin(np.radians(shown))
@@ -758,7 +762,8 @@ def night_data(targetlist=None, date=None, location='lasilla'):
         for i, row in sel.iterrows():
             targets.append(dict(name=str(row['name']), moon_limit=float(row['moon']), airmass_limit=float(row['airmass']),
                                 phase=str(row.get('phase', 'bright')), phase_limit=PHASE_LIMITS.get(str(row.get('phase', 'bright')), 1.0) * 100,
-                                alt=_nums(shown[i], 2), airmass=_nums(airmass[i], 3), moon_sep=_nums(sep[i], 1),
+                                alt=_nums(shown[i], 2), az=_nums(az[i], 2),
+                                airmass=_nums(airmass[i], 3), moon_sep=_nums(sep[i], 1),
                                 near_moon=near[i].tolist(), moon_velocity=_nums(moon_apparent[i], 3),
                                 moon_velocity_difference=_nums(moon_diff[i], 3),
                                 telluric_velocity_difference=_nums(tel_diff[i], 3),
@@ -812,6 +817,7 @@ def night_data(targetlist=None, date=None, location='lasilla'):
     night_help = '\n'.join(help_lines) if help_lines else 'No solar horizon crossings during this night.' 
     return dict(schedule_events=schedule_events, moon_phase=_nums(night.moon_phase * 100, 1), kind='night', location=location, date=str(night.dt[0].date()), title=_title_plain(night), night_help=night_help,
                 t=[_stamp(d) for d in night.dt], moon_alt=_nums(night.moon_alt, 2),
+                moon_az=_nums(night.moon_az, 2),
                 twilight=[dict(x0=_stamp(a), x1=_stamp(b), alpha=float(al))
                           for a, b, al in zip(night.bounds[:-1], night.bounds[1:], night.shade) if al > 0],
                 lst_t=[_stamp(d) for d in ticks], lst=lst, targets=targets)
