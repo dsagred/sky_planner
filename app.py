@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 from flask import Flask, Response, jsonify, render_template, request, send_file, abort
 
 from desktop_session import record_activity
-from sites import CUSTOM_SITES
+from sites import CUSTOM_SITES, ObservatoryPreferences
 from store import PLOT_COLUMNS, Plan, Project, PlanStore, ProjectStore, ValidationError, parse_csv
 
 BASE = Path(__file__).parent
@@ -18,6 +18,7 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024        # 2 MB uploads
 projects = ProjectStore(BASE / "data" / "projects")
 plans = PlanStore(BASE / "data" / "plans")
+observatory_preferences = ObservatoryPreferences(BASE / "data" / "preferences.json")
 COMPUTE_LOCK = threading.Lock()                            # one heavy astropy computation at a time
 
 FALLBACK_LOCATIONS = ["lasilla", "paranal", "greenwich", "ohp", "keck", "lapalma"]
@@ -83,6 +84,21 @@ def plotly_js():
 @app.get("/api/locations")
 def api_locations():
     return jsonify(locations())
+
+
+@app.get("/api/preferences/location")
+def get_observatory_preference():
+    # Null means no user preference; the UI then defaults to La Silla (or
+    # migrates a location remembered by an older browser-only installation).
+    return jsonify(location=observatory_preferences.get())
+
+
+@app.post("/api/preferences/location")
+def save_observatory_preference():
+    try:
+        return jsonify(location=observatory_preferences.set(body().get("location")))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
 
 
 @app.get("/api/wind")

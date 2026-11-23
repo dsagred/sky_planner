@@ -180,6 +180,18 @@
   <div id="plotbox"><div id="plot"></div><a id="windSpeedLink" href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer" title="Current 10 m wind model — weather data by Open-Meteo"></a><span id="windStatus" hidden></span><div id="plotmsg">Fill the plan (drag stars from a project into it), then choose a night plot or “Visible hours”.</div></div>
 </main>
 
+<!-- In-page confirmation avoids browser suppression of native confirm() dialogs. -->
+<dialog id="confirmDlg" aria-labelledby="confirmHeading" aria-describedby="confirmMessage">
+  <form method="dialog">
+    <div class="dialog-header"><h2 id="confirmHeading">Confirm action</h2></div>
+    <p id="confirmMessage" style="white-space:pre-wrap"></p>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button id="confirmCancel" type="submit" value="cancel" autofocus>Cancel</button>
+      <button id="confirmOk" type="submit" value="confirm" class="primary">Delete</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="planDlg">
 <form id="planForm" method="dialog">
 <div class="dialog-header"><h2 id="planDlgTitle">Plan defaults</h2><button type="button" class="dialog-close" data-cancel aria-label="Close plan settings">×</button></div>
@@ -279,7 +291,7 @@ function toast(msg, ms = 4000) {
 }
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
-const btn = (text, title, fn, cls = 'small') => { const b = el('button', {className: cls, textContent: text, title}); b.onclick = guard(fn); return b; };
+const btn = (text, title, fn, cls = 'small') => { const b = el('button', {type:'button', className: cls, textContent: text, title}); b.onclick = guard(fn); return b; };
 
 // Language selection affects presentation only; target names and saved numeric data are unchanged.
 const LANGUAGE_STRINGS = {"Projects": {"de": "Projekte", "es": "Proyectos"}, "PLANS": {"de": "PLÄNE", "es": "PLANES"}, "Plans": {"de": "Pläne", "es": "Planes"}, "+ New": {"de": "+ Neu", "es": "+ Nuevo"}, "Open project…": {"de": "Projekt öffnen…", "es": "Abrir proyecto…"}, "Open project...": {"de": "Projekt öffnen…", "es": "Abrir proyecto…"}, "filter targets by name…": {"de": "Ziele nach Name filtern…", "es": "Filtrar objetivos por nombre…"}, "One night:": {"de":"Eine Nacht:","es":"Una noche:"}, "Altitude": {"de":"Höhe","es":"Altitud"}, "Fisheye": {"de":"Fisheye","es":"Ojo de pez"}, "Zenith":{"de":"Zenit","es":"Cenit"}, "Choose a nightly altitude or fisheye projection": {"de":"Höhen- oder Fisheye-Darstellung wählen","es":"Elegir vista nocturna de altitud u ojo de pez"}, "Night plot projection": {"de":"Nachtdiagramm-Darstellung","es":"Proyección nocturna"}, "Choose night plot projection":{"de":"Nachtdarstellung wählen","es":"Elegir proyección nocturna"}, "Choose Altitude or Fisheye":{"de":"Höhe oder Fisheye wählen","es":"Elegir altitud u ojo de pez"}, "Plot the selected one-night view":{"de":"Gewählte Nachtdarstellung anzeigen","es":"Mostrar la vista nocturna seleccionada"}, "Fisheye plot - horizon limit [°]":{"de":"Fisheye-Diagramm – Horizontgrenze [°]","es":"Gráfico ojo de pez – altitud mínima [°]"}, "Fisheye plot - toggle Wind info":{"de":"Fisheye-Diagramm – Windinformationen anzeigen","es":"Gráfico ojo de pez – mostrar viento"}, "Smallest altitude shown in the Fisheye view (0 to 89.9 degrees)":{"de":"Kleinste Höhe im Fisheye-Diagramm (0 bis 89,9 Grad)","es":"Altitud mínima en el ojo de pez (0 a 89,9 grados)"}, "Current wind":{"de":"Aktueller Wind","es":"Viento actual"}, "Wind unavailable":{"de":"Winddaten nicht verfügbar","es":"Datos de viento no disponibles"}, "Current 10 m wind model — weather data by Open-Meteo":{"de":"Aktuelles Windmodell in 10 m Höhe – Wetterdaten: Open-Meteo","es":"Modelo de viento actual a 10 m – datos: Open-Meteo"}, "Altitude · one night": {"de": "Höhe · eine Nacht", "es": "Altura · una noche"}, "Visible hours · whole year": {"de": "Sichtbare Stunden · ganzes Jahr", "es": "Horas visibles · año completo"}, "Date": {"de": "Datum", "es": "Fecha"}, "Location": {"de": "Standort", "es": "Ubicación"}, "Update": {"de": "Aktualisieren", "es": "Actualizar"}, "Calculating": {"de": "Berechnung läuft", "es": "Calculando"}, "Plot appearance": {"de": "Diagrammdarstellung", "es": "Aspecto del gráfico"}, "Dark plot": {"de": "Dunkles Diagramm", "es": "Gráfico oscuro"}, "Light plot": {"de": "Helles Diagramm", "es": "Gráfico claro"}, "Yearly plot — Sun altitude": {"de": "Jahresdiagramm — Sonnenhöhe", "es": "Gráfico anual — altura solar"}, "Language": {"de": "Sprache", "es": "Idioma"}, "0° — Sunset / sunrise": {"de": "0° — Sonnenuntergang / Sonnenaufgang", "es": "0° — Puesta / salida del Sol"}, "−6° — Civil twilight": {"de": "−6° — Bürgerliche Dämmerung", "es": "−6° — Crepúsculo civil"}, "−12° — Nautical twilight": {"de": "−12° — Nautische Dämmerung", "es": "−12° — Crepúsculo náutico"}, "−18° — Astronomical twilight": {"de": "−18° — Astronomische Dämmerung", "es": "−18° — Crepúsculo astronómico"}, "Schedule start (UTC)": {"de": "Zeitplanbeginn (UTC)", "es": "Inicio de programación (UTC)"}, "Time…": {"de": "Zeit…", "es": "Hora…"}, "Plan defaults": {"de": "Planvorgaben", "es": "Valores predeterminados del plan"}, "Name": {"de": "Name", "es": "Nombre"}, "Mode": {"de": "Modus", "es": "Modo"}, "Plan": {"de": "Plan", "es": "Plan"}, "Schedule": {"de": "Zeitplan", "es": "Programa"}, "Default exposure time [s]": {"de": "Standard-Belichtungszeit [s]", "es": "Exposición predeterminada [s]"}, "Default delay between exposures [min]": {"de": "Standardpause zwischen Belichtungen [min]", "es": "Pausa predeterminada entre exposiciones [min]"}, "Start of observation": {"de": "Beobachtungsbeginn", "es": "Inicio de observación"}, "Sunset": {"de": "Sonnenuntergang", "es": "Puesta del Sol"}, "Civil twilight": {"de": "Bürgerliche Dämmerung", "es": "Crepúsculo civil"}, "Nautical twilight": {"de": "Nautische Dämmerung", "es": "Crepúsculo náutico"}, "Astronomical twilight": {"de": "Astronomische Dämmerung", "es": "Crepúsculo astronómico"}, "Apply exposure time to all targets in this plan": {"de": "Belichtungszeit für alle Ziele dieses Plans übernehmen", "es": "Aplicar el tiempo de exposición a todos los objetivos del plan"}, "Apply delay to all targets in this plan": {"de": "Pause für alle Ziele dieses Plans übernehmen", "es": "Aplicar la pausa a todos los objetivos del plan"}, "Copy…": {"de": "Kopieren…", "es": "Copiar…"}, "Download": {"de": "Herunterladen", "es": "Descargar"}, "Delete": {"de": "Löschen", "es": "Eliminar"}, "Cancel": {"de": "Abbrechen", "es": "Cancelar"}, "Save": {"de": "Speichern", "es": "Guardar"}, "Current time": {"de": "Aktuelle Zeit", "es": "Hora actual"}, "Default twilight": {"de": "Standarddämmerung", "es": "Crepúsculo predeterminado"}, "Specific UTC time (HH:MM)": {"de": "UTC-Uhrzeit (HH:MM)", "es": "Hora UTC específica (HH:MM)"}, "Apply": {"de": "Übernehmen", "es": "Aplicar"}, "Star": {"de": "Ziel", "es": "Objetivo"}, "Name / SIMBAD identifier": {"de": "Name / SIMBAD-Kennung", "es": "Nombre / identificador SIMBAD"}, "Search SIMBAD": {"de": "SIMBAD durchsuchen", "es": "Buscar en SIMBAD"}, "RA (hh mm ss or hh:mm:ss)": {"de": "Rektaszension (hh mm ss oder hh:mm:ss)", "es": "AR (hh mm ss o hh:mm:ss)"}, "Dec (±dd mm ss)": {"de": "Deklination (±dd mm ss)", "es": "Dec (±dd mm ss)"}, "Gaia G magnitude (Gmag, optional)": {"de": "Gaia-G-Helligkeit (Gmag, optional)", "es": "Magnitud G de Gaia (Gmag, opcional)"}, "Max. airmass": {"de": "Max. Luftmasse", "es": "Masa de aire máxima"}, "Moon phase": {"de": "Mondphase", "es": "Fase lunar"}, "Min. Moon distance [deg]": {"de": "Min. Mondabstand [Grad]", "es": "Distancia lunar mín. [grados]"}, "Moon velocity limit [km/s] (optional)": {"de": "Grenze der Mondgeschwindigkeit [km/s] (optional)", "es": "Límite de velocidad lunar [km/s] (opcional)"}, "Telluric velocity limit [km/s] (optional)": {"de": "Grenze der tellurischen Geschwindigkeit [km/s] (optional)", "es": "Límite de velocidad telúrica [km/s] (opcional)"}, "Radial velocity [km/s] (optional)": {"de": "Radialgeschwindigkeit [km/s] (optional)", "es": "Velocidad radial [km/s] (opcional)"}, "Exposure time [s]": {"de": "Belichtungszeit [s]", "es": "Tiempo de exposición [s]"}, "Number of exposures": {"de": "Anzahl Belichtungen", "es": "Número de exposiciones"}, "Delay between exposures [min]": {"de": "Pause zwischen Belichtungen [min]", "es": "Pausa entre exposiciones [min]"}, "Comments (up to 1000 words)": {"de": "Kommentare (bis 1000 Wörter)", "es": "Comentarios (hasta 1000 palabras)"}, "Project": {"de": "Projekt", "es": "Proyecto"}, "Default max. airmass": {"de": "Standardwert max. Luftmasse", "es": "Masa de aire máxima predeterminada"}, "Default Moon phase": {"de": "Standard-Mondphase", "es": "Fase lunar predeterminada"}, "Default min. Moon distance [deg]": {"de": "Standard-Mindestmondabstand [Grad]", "es": "Distancia lunar mínima predeterminada [grados]"}, "Default Moon velocity limit [km/s] (optional)": {"de": "Standardgrenze Mondgeschwindigkeit [km/s] (optional)", "es": "Límite predeterminado de velocidad lunar [km/s] (opcional)"}, "Default Telluric velocity limit [km/s] (optional)": {"de": "Standardgrenze tellurische Geschwindigkeit [km/s] (optional)", "es": "Límite predeterminado de velocidad telúrica [km/s] (opcional)"}, "also apply to the stars already in this project": {"de": "auch auf vorhandene Ziele in diesem Projekt anwenden", "es": "aplicar también a los objetivos existentes en este proyecto"}, "Bright (100%)": {"de": "Hell (100 %)", "es": "Brillante (100 %)"}, "Gray (70%)": {"de": "Grau (70 %)", "es": "Gris (70 %)"}, "Dark (40%)": {"de": "Dunkel (40 %)", "es": "Oscuro (40 %)"}, "Close": {"de": "Schließen", "es": "Cerrar"}, "None": {"de": "Keine", "es": "Ninguno"}, "Not available": {"de": "Nicht verfügbar", "es": "No disponible"}, "Sort RA": {"de": "Nach RA sortieren", "es": "Ordenar por AR"}, "Undo": {"de": "Rückgängig", "es": "Deshacer"}, "Redo": {"de": "Wiederholen", "es": "Rehacer"}, "Select all": {"de": "Alle auswählen", "es": "Seleccionar todo"}, "Upload": {"de": "Hochladen", "es": "Subir"}, "Info": {"de": "Info", "es": "Información"}, "Settings": {"de": "Einstellungen", "es": "Configuración"}, "User guide and accepted CSV formats": {"de": "Benutzerhandbuch und unterstützte CSV-Formate", "es": "Manual de usuario y formatos CSV admitidos"}, "Interactive astronomical observation planner for target catalogues, observing plans, altitude tracks and yearly visibility.": {"de": "Interaktiver astronomischer Beobachtungsplaner für Zielkataloge, Beobachtungspläne, Höhenkurven und Jahressichtbarkeit.", "es": "Planificador astronómico interactivo para catálogos de objetivos, planes de observación, curvas de altura y visibilidad anual."}, "Fill the plan (drag stars from a project into it), then choose a night plot or “Visible hours”.": {"de": "Plan füllen (Ziele aus einem Projekt ziehen), dann eine Nachtdarstellung oder „Sichtbare Stunden“ wählen.", "es": "Complete el plan (arrastre objetivos desde un proyecto) y elija una vista nocturna u «Horas visibles»."}};
@@ -591,6 +603,12 @@ const EXTRA_UI_STRINGS = {
     "es": "Mostrar objetivos cuyo nombre coincide (en todos los proyectos abiertos)"
   }
 };
+// Dialog actions and headings are localized like the rest of the interface.
+Object.assign(EXTRA_UI_STRINGS, {
+  'Confirm action': {de:'Aktion bestätigen', es:'Confirmar acción'},
+  'Replace': {de:'Ersetzen', es:'Reemplazar'},
+  'Append': {de:'Anhängen', es:'Añadir'}
+});
 const translateUI = text => {
   const translated=(LANGUAGE_STRINGS[text] || EXTRA_UI_STRINGS[text])?.[uiLanguage];
   if(translated || uiLanguage==='en')return translated || text;
@@ -935,9 +953,68 @@ document.addEventListener('keydown',e=>{
   if(!action)return;
   e.preventDefault();guard(()=>historyAction(action))();
 });
+// Use a real in-page modal rather than window.confirm(). Chromium can suppress
+// native JS dialogs (e.g. after repeated use or when its dialog policy changes),
+// leaving both the card × and bulk Delete controls apparently unresponsive.
+// A single shared dialog also protects project/plan deletion and CSV replacement.
+const CONFIRM_MESSAGES = {
+  selectedPlan: {
+    en: (count, name) => `Remove ${count} selected target(s) from plan "${name}"?`,
+    de: (count, name) => `${count} ausgewählte Ziele aus Plan „${name}“ entfernen?`,
+    es: (count, name) => `¿Quitar ${count} objetivos seleccionados del plan «${name}»?`
+  },
+  selectedProject: {
+    en: (count, name) => `Permanently delete ${count} selected target(s) from project "${name}"?`,
+    de: (count, name) => `${count} ausgewählte Ziele endgültig aus Projekt „${name}“ löschen?`,
+    es: (count, name) => `¿Eliminar permanentemente ${count} objetivos seleccionados del proyecto «${name}»?`
+  },
+  planTarget: {
+    en: (target, name) => `Remove target "${target}" from plan "${name}"?`,
+    de: (target, name) => `Ziel „${target}“ aus Plan „${name}“ entfernen?`,
+    es: (target, name) => `¿Quitar el objetivo «${target}» del plan «${name}»?`
+  },
+  projectTarget: {
+    en: (target, name) => `Permanently delete target "${target}" from project "${name}"?`,
+    de: (target, name) => `Ziel „${target}“ endgültig aus Projekt „${name}“ löschen?`,
+    es: (target, name) => `¿Eliminar permanentemente el objetivo «${target}» del proyecto «${name}»?`
+  },
+  project: {
+    en: (name, count) => `Permanently delete project "${name}" and all ${count} targets?`,
+    de: (name, count) => `Projekt „${name}“ und alle ${count} Ziele endgültig löschen?`,
+    es: (name, count) => `¿Eliminar permanentemente el proyecto «${name}» y sus ${count} objetivos?`
+  },
+  plan: {
+    en: name => `Delete plan "${name}"?`,
+    de: name => `Plan „${name}“ löschen?`,
+    es: name => `¿Eliminar el plan «${name}»?`
+  },
+  upload: {
+    en: () => 'Replace the existing stars of this project? (Choose Append to keep them.)',
+    de: () => 'Vorhandene Ziele dieses Projekts ersetzen? (Mit „Anhängen“ bleiben sie erhalten.)',
+    es: () => '¿Reemplazar los objetivos existentes del proyecto? (Seleccione «Añadir» para conservarlos.)'
+  }
+};
+function confirmationMessage(action, ...args) {
+  return (CONFIRM_MESSAGES[action][uiLanguage] || CONFIRM_MESSAGES[action].en)(...args);
+}
+function confirmInApp(message, {action='Delete', cancel='Cancel'} = {}) {
+  const dialog=$('#confirmDlg');
+  if (dialog.open) return Promise.resolve(false); // Never overwrite a pending confirmation.
+  $('#confirmHeading').textContent=translateUI('Confirm action');
+  $('#confirmMessage').textContent=message; // User-supplied names are text, not HTML.
+  $('#confirmOk').textContent=translateUI(action);
+  $('#confirmCancel').textContent=translateUI(cancel);
+  dialog.returnValue='cancel'; // Escape must not inherit the last accepted answer.
+  return new Promise((resolve,reject) => {
+    const onClose=()=>resolve(dialog.returnValue==='confirm');
+    dialog.addEventListener('close',onClose,{once:true});
+    try {dialog.showModal();} catch(err) {dialog.removeEventListener('close',onClose);reject(err);}
+  });
+}
+
 async function deleteSelection(scope,name) {
   const ids=selectedIds(scope,name);if(!ids.length)return toast('Select targets first');
-  if(!confirm(`${scope==='project'?'Permanently delete':'Remove'} ${ids.length} selected target(s) from ${name}?`))return;
+  if(!await confirmInApp(confirmationMessage(scope==='project'?'selectedProject':'selectedPlan',ids.length,name)))return;
   await api((scope==='project'?P(name):`/api/plans/${enc(name)}`)+'/targets',{method:'DELETE',json:{ids}});
   selected.delete(keyFor(scope,name));await loadProjects();await loadPlans();schedulePlot();
 }
@@ -1090,11 +1167,11 @@ function starCard(t, scope, project) {
   c.append(btn('✎', scope === 'plan' ? 'Edit this star in the plan (the project star stays unchanged)' : 'Edit this star', () => openStarDialog(scope, scope === 'plan' ? plan : project, t)));
   c.append(btn('✕', scope === 'plan' ? 'Remove this star from the plan' : 'Delete this star from the project', async () => {
     if (scope === 'plan') {
-      if(!confirm(`Remove target "${t.name}" from plan "${plan}"?`))return;
+      if(!await confirmInApp(confirmationMessage('planTarget',t.name,plan)))return;
       selected.get(keyFor('plan',plan))?.delete(t.id);
       await api(PL() + '/targets', {method: 'DELETE', json: {ids: [t.id]}}); await loadPlans(); schedulePlot();
     } else {
-      if(!confirm(`Permanently delete target \"${t.name}\" from project \"${project}\"?`))return;
+      if(!await confirmInApp(confirmationMessage('projectTarget',t.name,project)))return;
       selected.get(keyFor('project',project))?.delete(t.id);
       await api(P(project) + '/targets', {method: 'DELETE', json: {ids: [t.id]}}); await refreshProject(project);
     }
@@ -1130,7 +1207,7 @@ function renderProjects() {
       btn('Download CSV','Download this project as CSV',()=>{menu.hidden=true;location.href=P(name)+'/download';}),
       btn('Delete project…','Permanently delete this project and all its targets',async()=>{
         menu.hidden=true;
-        if(!confirm(`Permanently delete project "${name}" and all ${stars.length} targets?`))return;
+        if(!await confirmInApp(confirmationMessage('project',name,stars.length)))return;
         await api(P(name),{method:'DELETE'});
         selected.delete(keyFor('project',name));
         open=open.filter(n=>n!==name);store.set('open',open);await loadProjects();
@@ -1201,7 +1278,7 @@ $('#clearFilter').onclick=()=>{$('#filter').value='';renderProjects();$('#filter
 $('#file').onchange = guard(async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f || !uploadTo) return;
   const fd = new FormData(); fd.append('file', f);
-  if ((pdata[uploadTo] || []).length && confirm('Replace the existing stars of this project? (Cancel = append to them)')) fd.append('mode', 'replace');
+  if ((pdata[uploadTo] || []).length && await confirmInApp(confirmationMessage('upload'),{action:'Replace',cancel:'Append'})) fd.append('mode', 'replace');
   const r = await api(P(uploadTo) + '/upload', {method: 'POST', body: fd});
   toast(`Added ${r.added} star(s)` + (r.skipped.length ? `\nSkipped:\n${r.skipped.join('\n')}` : ''), 8000);
   await refreshProject(uploadTo);
@@ -1409,7 +1486,7 @@ $('#copyPlan').onclick=guard(async()=>{
   await api('/api/plans',{json:{name,copy_from:plan}});plan=name.trim();$('#planDlg').close();scheduleStartOverride=null;await loadPlans();schedulePlot();
 });
 $('#delPlan').onclick=guard(async()=>{
-  if(!confirm(`Delete plan "${plan}"?`))return;
+  if(!await confirmInApp(confirmationMessage('plan',plan)))return;
   await api(PL(),{method:'DELETE'});plan=null;$('#planDlg').close();scheduleStartOverride=null;await loadPlans();schedulePlot();
 });
 $('#downPlan').onclick=()=>{if(plan){const params=new URLSearchParams({date:$('#date').value,location:$('#location').value});if(scheduleStartOverride!==null)params.set('start_utc',new Date(scheduleStartOverride).toISOString().slice(0,19));location.href=PL()+'/download?'+params;}};
@@ -2152,10 +2229,67 @@ document.addEventListener('click',e=>{if(!e.target.closest('.night-view-wrap'))h
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hideNightMenu();});
 syncPlotButtons();
 $('#date').value = new Date().toISOString().slice(0, 10);
-$('#date').onchange = $('#location').onchange = schedulePlot;
-
+// The last observatory is stored by the Sky Planner server, not just the
+// browser. Browser storage is retained for migration from older installations
+// and as a fallback if the server preference request fails.
+const locationField = $('#location');
+const browserObservatory = store.get('observatoryLocation', null);
+const previousObservatory = typeof browserObservatory === 'string' && browserObservatory.trim()
+  ? browserObservatory.trim() : null;
+locationField.value = previousObservatory || 'lasilla';
+let locationTouched = false, locationSaveTimer = null;
+let locationSaveQueue = Promise.resolve();
+function rememberLocationInBrowser(value) {
+  try { store.set('observatoryLocation', value); } catch { /* browser storage can be unavailable */ }
+}
+function persistObservatory(value) {
+  const name = value.trim();
+  if (!name) return locationSaveQueue;
+  rememberLocationInBrowser(name);
+  // Serialize writes so an older request cannot overwrite a later edit.
+  locationSaveQueue = locationSaveQueue.catch(() => {}).then(() =>
+    api('/api/preferences/location', {json: {location: name}})
+  );
+  locationSaveQueue.catch(e => toast(`Could not save observatory: ${e.message}`));
+  return locationSaveQueue;
+}
+function locationEdited() {
+  locationTouched = true;
+  const name = locationField.value.trim();
+  if (name) rememberLocationInBrowser(name);
+  clearTimeout(locationSaveTimer);
+  if (name) locationSaveTimer = setTimeout(() => persistObservatory(name), 350);
+}
+locationField.addEventListener('input', locationEdited);
+locationField.addEventListener('change', () => {
+  locationEdited();
+  clearTimeout(locationSaveTimer);
+  if (locationField.value.trim()) persistObservatory(locationField.value);
+  schedulePlot();
+});
+// A user can close the application while the field still has keyboard focus.
+// A beacon commits that final value without delaying browser shutdown.
+window.addEventListener('pagehide', () => {
+  if (!locationTouched || !locationField.value.trim()) return;
+  navigator.sendBeacon?.('/api/preferences/location',
+    new Blob([JSON.stringify({location: locationField.value.trim()})], {type:'application/json'}));
+});
+async function restoreObservatory() {
+  try {
+    const saved = await api('/api/preferences/location');
+    if (locationTouched) return; // Do not overwrite a location the user is typing.
+    if (typeof saved?.location === 'string' && saved.location.trim()) {
+      locationField.value = saved.location.trim();
+      rememberLocationInBrowser(locationField.value);
+    } else if (previousObservatory) {
+      // First run after upgrading from the browser-only location preference.
+      await persistObservatory(previousObservatory);
+    }
+  } catch { /* leave the existing local preference or La Silla in place */ }
+}
+$('#date').onchange = schedulePlot;
 api('/api/locations').then(l => $('#locs').innerHTML = l.map(x => `<option value="${x.replace(/"/g, '&quot;')}">`).join(''));
-loadProjects().then(loadPlans).catch(e => toast(e.message));
+restoreObservatory().then(loadProjects).then(loadPlans).catch(e => toast(e.message));
 </script>
 <script>
 // Desktop-only browser session. Background-tab throttling or sleep must not

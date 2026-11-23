@@ -1,9 +1,5 @@
 # Sky Observation Planner
 
-**Version 0.7 — 3 November 2026.**
-
-*Maintenance corrections: 4 November 2026 (translations, plotting layout, launcher-session reliability).*
-
 **Plan your observing night, explore target visibility, and turn a list of astronomical objects into a practical observing schedule.**
 
 Sky Observation Planner is designed to make astronomical observation planning quick and intuitive. Explore when your targets are visible from your preferred observatory with an interactive **nightly altitude or All-Sky/Fisheye plot**, or look ahead through the seasons with an **annual visibility plot**. Set your observing limits, compare the Moon's position and other observing conditions, and find suitable windows for your targets before heading to the telescope.
@@ -74,8 +70,8 @@ The macOS server log is **~/Library/Logs/SkyPlanner/server.log**. The launcher s
 
 ## Author and licence
 
-**Author:** D. Sebastian  
-**Licence:** MIT License — Copyright © 2026 D. Sebastian. See [LICENSE](LICENSE) for the full terms.
+**Author:** D. Sagred  
+**Licence:** MIT License — Copyright © 2026 D. Sagred. See [LICENSE](LICENSE) for the full terms.
 
 ## 2. Basic usage: projects and plans
 
@@ -106,6 +102,8 @@ Project defaults include airmass, Moon phase, Moon distance and optional Moon/te
 Sites, alraedy loaded in astropy can be selscted. See list of sites here: https://docs.astropy.org/en/stable/api/astropy.coordinates.EarthLocation.html#astropy.coordinates.EarthLocation.get_site_names
 
 Simply start typing your preferred site and use the autofill to complete them. Sites can be added manually by adding them in the list, loaded in sites.py
+
+Sky Planner remembers the last selected observatory. The last-used selection is saved separately in `data/preferences.json`.
 
 ## 4. Plotting
 
